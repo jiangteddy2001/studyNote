@@ -7,9 +7,9 @@
 3. Redis可以作为计算工具，能用很小的代价，统计诸如PV/UV、用户在线天数等数据；
 4. Redis还有很多其他的使用场景，例如：可以实现分布式锁，可以作为消息队列使用。
 
-常用网站
+**常用网站**
 
-### https://redis.io/ 官网
+https://redis.io/ 官网
 
 [http://www.redis.cn](http://www.redis.cn/) 中文网
 
