@@ -1,21 +1,15 @@
 * JAVA
-    * [Java基础](md/Java基础.md)
+    * [Java容器](md/Java容器.md)
     * [Java多线程](md/Java多线程.md)
-* Spring
-    * [Spring](md/Spring.md)
-    * [Spring源码](md/Spring源码.md)
 * 网络编程
     * [Netty](md/Netty学习心得.md)
-    * [Socket](md/Socket.md)
 * JVM
     * [JVM](md/JVM.md)
-    * [JVM实践](md/JVM实践.md)
 * Redis
     * [Redis](md/Redis.md)
 * Mybatis
     * [Mybatis](md/Mybatis.md)
 * 微服务
-    * [微服务](md/微服务.md)
 	* [SpringCloud](md/SpringCloud.md)
 * Mysql
     * [Mysql](md/Mysql.md)
