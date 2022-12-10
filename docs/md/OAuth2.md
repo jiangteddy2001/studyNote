@@ -2,9 +2,7 @@
 
 ## 1 使用目的
 
-RESTful API是平台向第三方传输平台数据以及获取第三方合作伙伴数据的服务方式。保护通过RESTful方式提供的数据始终应该是属于保护高优先级。
-
-目前接口访问的认证安全，主要针对包括身份认证、API的权限控制。
+目前接口访问的认证安全，主要针对包括身份认证、API的权限控制。我们选用OAuth2协议来保证数据传输的安全。
 
 ## 2 技术选型
 
@@ -55,18 +53,66 @@ state：应用程序传递的一个随机数，用来防止CSRF攻击。
 
 
 
-6 客户端凭证模式讲解
+## 6 客户端凭证模式讲解
 
-
+![image-20221209221429420](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212092214579.png)
 
 Step 1 - 客户端使用授权服务器进行身份验证，并从令牌端点发出访问令牌请求。
 
 Step 2 - 授权服务器对客户端进行身份验证，并在访问令牌有效和授权时提供访问令牌。
 
+pom文件里主要依赖：
+
+![image-20221209221501299](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212092215341.png)
+
+数据库插入基础数据：
+
+![image-20221209221548768](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212092215805.png)
 
 
-7 JWT
+
+认证服务配置：AuthorizationServerConfigurerAdapter
+
+![image-20221209221622951](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212092216999.png)
+
+进行资源配置ResourceServerConfigurerAdapter
+
+![image-20221209221709322](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212092217352.png)
+
+ClientDetailsServiceConfigurer
+
+我们选择的数据库模式，对应的表
+
+![image-20221209221736523](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212092217557.png)
+
+怎么对应的呢？(属于Java的建造者模式)
+
+ClientDetailsServiceConfigurer-->JdbcClientDetailsServiceBuilder--->Set<ClientDetails> clientDetails-->ClientDetails
+
+![image-20221209221811928](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212092218963.png)
+
+第一步：通过client_id和client_secret访问获取到TOKEN
+
+![image-20221209221844277](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212092218344.png)
+
+token失效时间对应数据库字段
+
+![image-20221209221922155](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212092219186.png)
+
+返回的token是JWT格式
+
+## 7 JWT
 
 JWT就是上述流程当中token的一种具体实现方式，其全称是JSON Web Token。
 
 通俗地说，JWT的本质就是一个字符串，它是将用户信息保存到一个Json字符串中，然后进行编码后得到一个JWT token，并且这个JWT token带有签名信息，接收后可以校验是否被篡改，所以可以用于在各方之间安全地将信息作为Json对象传输。
+
+![image-20221209222017800](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212092220834.png)
+
+根据TOKEN去访问资源
+
+![image-20221209222054278](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212092220315.png)
+
+访问成功后
+
+![image-20221209222130084](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212092221138.png)
