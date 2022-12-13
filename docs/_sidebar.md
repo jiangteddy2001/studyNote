@@ -13,7 +13,7 @@
 	* [微服务](md/微服务.md)
 	* [Actuator](md/Actuator.md)
 	* [OAuth2](md/OAuth2.md)
-* Mysql
+* 数据库
     * [Mysql](md/Mysql.md)
     * [Mycat](md/Mycat.md)
 * 消息队列
@@ -25,8 +25,10 @@
 * 容器
     * [Docker](md/Docker.md)
 	* [K8s](md/K8s.md)
+	* [KubeSphere](md/KubeSphere.md)
 * CI\CD
     * [Jenkins](md/Jenkins.md)
+	* [发布策略](md/发布策略.md)
 * Linux
     * [Linux命令](md/Linux指令.md)
 * 数据安全
