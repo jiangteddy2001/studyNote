@@ -280,15 +280,57 @@ docker cp  /data/conf/nginx.conf  5eff66eec7e1:/etc/nginx/nginx.conf
 
 ## 5 Docker打包应用
 
-5.1 部署中间件Redis
+### 5.1 部署中间件Redis
+
+docker run -v /home/jiang/redis/redis.conf:/etc/redis/redis.conf \
+-v /home/jiang/redis/data:/data \
+-d --name myredis \
+-p 6379:6379 \
+redis:latest  redis-server /etc/redis/redis.conf
 
 
 
-5.2 -Dockerfile
+### 5.2 -Dockerfile
+
+部署一个Java应用，然后填写Dockerfile
+
+FROM openjdk:8-jdk-slim
+LABEL maintainer=jiangbx
+
+COPY target/*.jar   /app.jar
+
+ENTRYPOINT ["java","-jar","/app.jar"]
+
+把Dockerfile和jar包一起上传到服务器，执行命令：
+
+docker build -t java-demo:v1.0 .
 
 
 
-5.3 启动容器
+### 5.3 启动容器
+
+docker run -d -p 8080:8080 --name myjava-app java-demo:v1.0
+
+启动后查看启动日志
+
+docker logs --tail=1000 myjava-app
+
+### 5.4 分享镜像
+
+//登录docker hub
+docker login
+
+//给旧镜像起名
+docker tag java-demo:v1.0  jiangbx/java-demo:v1.0
+
+//推送到docker hub
+docker push jiangbx/java-demo:v1.0
+
+//别的机器
+docker pull jiangbx/java-demo:v1.0
+
+//别的机器运行
+docker run -d -p 8080:8080 --name myjava-app java-demo:v1.0 
 
 
 
