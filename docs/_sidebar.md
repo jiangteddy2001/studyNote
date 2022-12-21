@@ -22,11 +22,12 @@
     * [Emqx](md/EMQX.md)
 * Nginx
     * [Nginx](md/Nginx.md)
-* 容器
+* 云原生
     * [Docker](md/Docker.md)
 	* [K8s](md/K8s.md)
 	* [KubeSphere](md/KubeSphere.md)
 * CI\CD
+    * [Gitlab](md/Gitlab.md)
     * [Jenkins](md/Jenkins.md)
 	* [发布策略](md/发布策略.md)
 * Linux

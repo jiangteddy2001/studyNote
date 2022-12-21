@@ -220,9 +220,44 @@ Netty发送和接收消息主要使用bytebuffer，bytebuffer使用对外内存�
 
 Netty中使用了FileChannel的transferTo方法，该方法依赖于操作系统实现零拷贝。
 
+## 13 编码器和解码器
+
+Netty里面的编解码器（入站解码，出站编码）：
+
+- 解码器：将消息从字节或其他序列形式转换成指定的消息对象。即负责处理“入站 InboundHandler”数据。
+- 编码器：将消息对象转换成字节或其他序列形式在网络上传输。即负责“出站 OutboundHandler” 数据。
+
+服务器编码数据后发送到客户端，客户端需要对数据进行解码。
+由于是双向通信，因此，在服务端和客户端的中均需要添加编解码器。
+
+### 13.1 解码器
+
+解码器负责处理“入站 InboundHandler”数据。 解码器实现了 ChannelInboundHandler，需要将解码器放在 ChannelPipeline中。
+
+**核心方法：** decode()方法是必须实现的唯一抽象方法。
+
+### 13.2 编码器
+
+编码器：将消息对象转换成字节或其他序列形式在网络上传输。
+
+编码器负责处理“出站 OutboundHandler” 数据。 编码器实现了 ChannelOutboundHandler，需要将解码器放在 ChannelPipeline中。它和上面的解码器的功能正好相反。
+
+Netty中主要提供了两个编码器抽象基类：
+
+MessageToByteEncoder：将消息编码为字节
+MessageToMessageEncoder，：将消息编码为消息，T 代表源数据的类型
+核心方法：encode()方法是你需要实现的唯一抽象方法。
 
 
-## 13 Netty内存池
+
+### 13.3编解码器类
+
+- 抽象类 ByteToMessageCodec
+- 抽象类 MessageToMessageCodec
+
+
+
+## 14Netty内存池
 
 ![image-20221211154225145](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212111542183.png)
 

@@ -332,7 +332,21 @@ docker pull jiangbx/java-demo:v1.0
 //别的机器运行
 docker run -d -p 8080:8080 --name myjava-app java-demo:v1.0 
 
+### 5.5其他命令
 
+![image-20221214174831940](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212141748732.png)
+
+操作docker的redis
+
+docker exec -it fdb2b3e99e93 redis-cli
+
+查看Docker网络
+
+docker network ls
+
+docker network inspect
+
+docker network inspect bridge
 
 ## 6 Docker Compose
 
@@ -666,3 +680,43 @@ Docker 镜像安全扫描，在镜像仓库客户端使用证书认证，对下�
 4、密钥和数据完整性
 
 Docker-TLS
+
+## 11 Docker网络
+
+### 11.1 容器查看网络
+
+```
+docker network ls
+```
+
+docker network inspect bridge
+
+### 11.2 安装PING
+
+我们在创建基础容器之后，进入容器，进行编辑配置文件的时候，需要使用ping，但是会出现：
+
+bash: ping: command not found
+
+解决办法：
+
+使用如下命令安装：
+
+```undefined
+apt install iputils-ping
+```
+
+如果执行错误，先执行一下命令：
+
+```sql
+apt-get update
+```
+
+执行ping命令
+
+docker exec -it fdb2b3e99e93（容器ID） /bin/bash
+
+
+
+11.3 查看端口映射
+
+docker 
