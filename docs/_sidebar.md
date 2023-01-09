@@ -15,9 +15,12 @@
 	* [OAuth2](md/OAuth2.md)
 * 数据库
     * [Mysql](md/Mysql.md)
+* 中间件
     * [Mycat](md/Mycat.md)
+	* [Canal](md/Canal.md)
 * 消息队列
     * [RocketMq](md/RocketMq.md)
+	* [Rabbitmq](md/Rabbitmq.md)
 * MQTT
     * [Emqx](md/EMQX.md)
 * Nginx
@@ -27,6 +30,7 @@
 	* [K8s](md/K8s.md)
 	* [KubeSphere](md/KubeSphere.md)
 * CI\CD
+    * [Nexus](md/Nexus.md)
     * [Gitlab](md/Gitlab.md)
     * [Jenkins](md/Jenkins.md)
 	* [发布策略](md/发布策略.md)

@@ -301,18 +301,6 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.3.1/a
 
 必须等下面2个dashboard都是running状态。
 
-问题：kubernetes(k8s)创建Dashboard失败，Dashboard的pod状态为CrashLoopBackOff
-
-解决办法：
-
-首先查询错误日志：
-
- kubectl logs -f -n kubernetes-dashboard kubernetes-dashboard-658485d5c7-9zdm8
-
-![image-20221219230107478](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212192301512.png)
-
-Error from server: Get "https://192.168.133.111:10250/containerLogs/kubernetes-dashboard/kubernetes-dashboard-658485d5c7-9zdm8/kubernetes-dashboard?follow=true": dial tcp 192.168.133.111:10250: connect: no route to host
-
 
 
 然后设置访问端口
@@ -320,3 +308,17 @@ Error from server: Get "https://192.168.133.111:10250/containerLogs/kubernetes-d
 kubectl edit svc kubernetes-dashboard -n kubernetes-dashboard
 
 编辑文本
+
+![image-20221221154750380](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212211547482.png)
+
+type: ClusterIP 改为 type: NodePort
+
+然后执行命令：kubectl get svc -A |grep kubernetes-dashboard
+
+![image-20221221164300128](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212211643167.png)
+
+https://192.168.133.110:30063/
+
+异常
+
+![image-20221221220227282](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212212202656.png)
