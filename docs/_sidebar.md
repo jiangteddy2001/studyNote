@@ -29,7 +29,7 @@
 * 云原生
     * [Docker](md/Docker.md)
 	* [K8s](md/K8s.md)
-	* [KubeSphere](md/KubeSphere.md)
+	* [DevOps](md/DevOps.md)
 * CI\CD
     * [Nexus](md/Nexus.md)
     * [Gitlab](md/Gitlab.md)
