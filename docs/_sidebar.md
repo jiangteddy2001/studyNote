@@ -30,6 +30,7 @@
     * [Docker](md/Docker.md)
 	* [K8s](md/K8s.md)
 	* [DevOps](md/DevOps.md)
+	* [KubeSphere](md/KubeSphere.md)
 * CI\CD
     * [Nexus](md/Nexus.md)
     * [Gitlab](md/Gitlab.md)
