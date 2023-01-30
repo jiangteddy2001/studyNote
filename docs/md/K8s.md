@@ -1,4 +1,4 @@
-# K8s
+K8s
 
 ## 1、基本概念
 
@@ -1241,7 +1241,7 @@ NodePort范围在 30000-32767 之间
 
 然后 任何一台 公网的 IP:31287 即可发 负载均衡的访问。
 
-### 4.5Ingress
+### 4.5 Ingress
 
 **Ingress**：Service 的统一网关入口，底层就是 nginx。（服务）
 
@@ -1616,19 +1616,847 @@ http://haha.jiang.com:32646/
 
 类似于 Docker 中的 挂载。但要考虑 自愈、故障转移 时的情况。
 
-### 5.1 环境准备
+![image-20230129171456758](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291715837.png)
+
+![image-20230129171628147](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291716207.png)
+
+### 5.1 NFS环境搭建
+
+#### 5.1.1 所有节点都要安装
+
+```
+#所有机器安装
+yum install -y nfs-utils
+```
+
+#### 5.1.2 主节点
+
+```
+# nfs主节点
+# 只在 mster 机器执行：nfs主节点，rw 读写
+echo "/nfs/data/ *(insecure,rw,sync,no_root_squash)" > /etc/exports
+
+mkdir -p /nfs/data
+systemctl enable rpcbind --now
+systemctl enable nfs-server --now
+#配置生效
+exportfs -r
+
+# 查看
+exportfs
+```
+
+![image-20230129172847710](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291728758.png)
+
+
+
+#### 5.1.3 从节点
+
+```
+# 检查，下面的 IP 是master IP
+showmount -e 192.168.133.106
+
+#执行以下命令挂载 nfs 服务器上的共享目录到本机路径 /root/nfsmount
+mkdir -p /nfs/data
+
+在 2 个从服务器执行，将远程 和本地的 文件夹 挂载
+mount -t nfs 192.168.133.106:/nfs/data /nfs/data
+
+# 写入一个测试文件
+echo "hello nfs server" > /nfs/data/test.txt
+
+# 在 2 个从服务器查看
+cd /nfs/data
+ls
+
+# 在 从服务器 修改，然后去 其他 服务器 查看，也能 同步
+```
+
+master
+
+![image-20230129173927659](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291739709.png)
+
+node
+
+![image-20230129173941035](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291739078.png)
+
+
+
+### 5.2 原生方式数据挂载
+
+在 /nfs/data/nginx-pv 挂载，然后 修改， 里面 两个 Pod 也会 同步修改。
+
+问题：删掉之后，文件还在，内容也在，是没法管理大小的。
+
+![image-20230129174606753](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291746807.png)
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-pv-demo
+  name: nginx-pv-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-pv-demo
+  template:
+    metadata:
+      labels:
+        app: nginx-pv-demo
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        volumeMounts:
+        - name: html
+          mountPath: /usr/share/nginx/html # 挂载目录
+      volumes:
+        - name: html
+          nfs:
+            server: 192.168.133.106
+            path: /nfs/data/nginx-pv # 要提前创建好文件夹，否则挂载失败
+```
+
+```
+cd /nfs/data
+mkdir -p nginx-pv
+ls
+
+vi deploy.yaml
+
+# 复制上面配置
+
+kubectl apply -f deploy.yaml
+
+kubectl get pod -owide
+```
+
+![image-20230129175203259](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291752318.png)
+
+![image-20230129175217245](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291752291.png)
+
+```
+cd /nfs/data/
+ls
+cd nginx-pv/
+echo "cgxin" > index.html
+
+# 进入 pod 里面查看
+```
+
+可视化界面进入pod查看
+
+![image-20230129175541754](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291755829.png)
+
+![image-20230129175632379](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291756429.png)
+
+问题：占用空间
+
+![image-20230129175912464](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291759521.png)
+
+删掉之后，文件还在，内容也在，是没法管理大小的。
+
+
+
+### 5.3 PV和PVC
+
+**PV**：持久卷（Persistent Volume），将应用需要持久化的数据保存到指定位置
+
+**PVC**：持久卷申明（Persistent Volume Claim），申明需要使用的持久卷规格。
+
+POD要申请多少空间，先办PVC（我要申请多少空间的申请书）
+
+挂载目录。ConfigMap 挂载配置文件。
+
+这里是 是 静态的， 就是自己创建好了 容量，然后 PVC 去挑。 还有 动态供应的，不用手动去创建 PV池子。
+
+![image-20230129180514662](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291805714.png)
+
+#### 5.3.1 创建 PV 池
+
+静态供应
+
+```
+#nfs主节点
+mkdir -p /nfs/data/01
+mkdir -p /nfs/data/02
+mkdir -p /nfs/data/03
+```
+
+创建PV3个
+
+```
+apiVersion: v1
+kind: PersistentVolume #持久化卷
+metadata:
+  name: pv01-10m
+spec:
+  # 限制容量
+  capacity:
+    storage: 10M
+  # 读写模式：可读可写
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  nfs:
+    # 挂载 上面创建过的文件夹
+    path: /nfs/data/01
+    # nfs 主节点服务器的 IP
+    server: 192.168.133.106
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  # 这个name 要小写，如 Gi 大写就不行
+  name: pv02-1gi
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  nfs:
+    path: /nfs/data/02
+    # nfs 主节点服务器的 IP
+    server: 192.168.133.106
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv03-3gi
+spec:
+  capacity:
+    storage: 3Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  nfs:
+    path: /nfs/data/03
+    # nfs 主节点服务器的 IP
+    server: 192.168.133.106
+```
+
+
+
+```
+vi pv.yaml
+
+# 复制上面文件内容
+
+kubectl apply -f pv.yaml
+
+# 查看 pv， kubectl get pv
+kubectl get persistentvolume
+```
+
+![image-20230129190721843](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291907883.png)
 
 
 
 
 
-### 5.2 PV和PVC
+#### 5.3.2 PVC创建与绑定
+
+创建PVC
+
+```
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nginx-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      # 需要 200M的 PV
+      storage: 200Mi
+  # 上面 PV 写的storageClassName 这里就写什么     
+  storageClassName: nfs
+```
+
+
+
+```
+vi pvc.yaml
+
+# 复制上面配置
+
+kubectl get pv
+
+kubectl apply -f pvc.yaml
+
+kubectl get pv
+
+kubectl get pvc
+```
+
+![image-20230129191539702](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291915745.png)
+
+图中显示已经绑定成功， 绑定了1G的，10M 不够，3G太大，就选择了 1G
+
+删除命令
+
+```
+kubectl delete -f pvc.yaml
+```
+
+![image-20230129191813949](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291918997.png)
+
+删除了，就 释放了（released），然后又运行了一遍，挂到3G的了
+
+#### 5.3.3 创建 Pod 绑定 PVC
+
+
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-deploy-pvc
+  name: nginx-deploy-pvc
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-deploy-pvc
+  template:
+    metadata:
+      labels:
+        app: nginx-deploy-pvc
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        volumeMounts:
+        - name: html
+          mountPath: /usr/share/nginx/html
+      volumes:
+        - name: html
+          # 之前是 nfs，这里用 pvc
+          persistentVolumeClaim:
+            claimName: nginx-pvc
+```
+
+
+
+```
+vi dep02.yaml
+
+# 复制上面 yaml
+
+kubectl apply -f dep02.yaml
+
+kubectl get pod
+
+kubectl get pv
+
+kubectl get pvc
+```
+
+![image-20230129192208033](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291922083.png)
+
+测试，编写一个html
+
+![image-20230129192653315](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291926379.png)
+
+
+
+进入 Pod 内部查看 同步的文件
+
+![image-20230129192108449](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291921514.png)
+
+![image-20230129192744385](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301291927446.png)
+
+内容显示也是“hello jiang”
+
+### 5.4  ConfigMap
+
+**ConfigMap**：抽取应用配置，并且可以自动更新。挂载配置文件， PV 和 PVC 是挂载目录的。
+
+K8S所有的数据保存在ETCD
+
+redis示例
+
+#### 5.4.1  创建配置集
+
+```
+vi redis.conf
+# 写
+appendonly yes
+
+# 创建配置，redis保存到k8s的etcd；
+kubectl create cm redis-conf --from-file=redis.conf
+
+# 查看
+kubectl get cm
+
+rm -rf redis.conf
+```
+
+![image-20230129202327648](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301292023704.png)
+
+```
+# 查看 ConfigMap 的 yaml 配置咋写的
+kubectl get cm redis-conf -oyaml
+```
+
+![image-20230129205725996](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301292057051.png)
+
+精简后的
+
+```
+apiVersion: v1
+data:   # data是所有真正的数据，key：默认是文件名   value：配置文件的内容（appendonly yes 是随便写的）
+  redis.conf: |
+    appendonly yes
+kind: ConfigMap
+metadata:
+  name: redis-conf
+  namespace: default
+
+```
+
+
+
+#### 5.4.2 创建Pod
+
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis
+spec:
+  containers:
+  - name: redis
+    image: redis
+    command:
+      - redis-server
+      - "/redis-master/redis.conf"  #指的是redis容器内部的位置
+    ports:
+    - containerPort: 6379
+    volumeMounts:
+    - mountPath: /data
+      name: data
+    - mountPath: /redis-master
+      name: config
+  volumes:
+    - name: data
+      emptyDir: {}
+    - name: config
+      configMap:
+        name: redis-conf
+        items:
+        - key: redis.conf
+          path: redis.conf
+```
+
+![image-20230129210212743](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301292102806.png)
+
+redis.conf 会放在 /redis-master 下
+
+```
+vi redis.yaml
+
+# 复制上面配置
+
+kubectl apply -f redis.yaml
+
+kubectl get pod
+```
+
+![image-20230129210629562](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301292106620.png)
+
+测试
+
+页面中 进入刚才创建的 pod redis 内部，查看 redis.conf 配置文件 内容
+
+![image-20230129210726366](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301292107420.png)
+
+修改配置
+
+```
+kubectl get cm
+
+# 修改配置 里 redis.conf 的内容
+kubectl edit cm redis-conf
+```
+
+修改 redis-conf 的 redis.conf 内容
+
+![image-20230129211133634](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301292111685.png)
+
+同步刷新
+
+![image-20230129211208080](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301292112144.png)
 
 
 
 
 
-### 5.3 ConfigMap
+#### 5.4.3 检查默认配置
+
+```
+kubectl exec -it redis -- redis-cli
+
+127.0.0.1:6379> CONFIG GET appendonly
+127.0.0.1:6379> CONFIG GET requirepass
+```
+
+检查刚才修改的配置是否生效
+
+![image-20230129211502807](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301292115856.png)
+
+还是原生 redis 的 默认配置，说明 配置值 没有同步，但 配置文件 已同步
+
+删除，重新创建 Pod，更新 配置文件的 配置值
+
+![image-20230129211920387](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301292119450.png)
+
+查看 更新的 配置值
+
+![image-20230129212109483](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301292121547.png)
+
+总结：
+
+- 修改了 ConfigMap，Pod里面的配置文件会跟着同步。
+- 但配置值 未更改，需要重新启动 Pod 才能从关联的ConfigMap 中获取 更新的值。 Pod 部署的中间件 自己本身没有热更新能力。
 
 
+
+#### 5.4.4 修改ConfigMap
+
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example-redis-config
+data:
+  redis-config: |
+    maxmemory 2mb
+    maxmemory-policy allkeys-lru 
+```
+
+
+
+#### 5.4.5 检查配置是否更新
+
+```
+kubectl exec -it redis -- redis-cli
+
+127.0.0.1:6379> CONFIG GET maxmemory
+127.0.0.1:6379> CONFIG GET maxmemory-policy
+```
+
+检查指定文件内容是否已经更新
+
+修改了CM。Pod里面的配置文件会跟着变
+
+
+
+### 5.5. Secret
+
+Secret 对象类型用来保存敏感信息，例如密码、OAuth 令牌和 SSH 密钥。 将这些信息放在 secret 中比放在 Pod 的定义或者 容器镜像 中来说更加安全和灵活。
+
+#### 5.5.1 Docker hub 拉取失败
+
+注册一个Docker hub 账号，然后创建一个仓库test,设置为私有仓库
+
+
+
+```
+docker login
+# 输入用户名和密码
+
+docker pull hello-world
+
+docker tag xxx/mynginx:v1.0.0 
+#xxx 代表的是你的docker hub的账号名称
+
+docker push xxx/mynginx:v1.0.0 
+# 推送的时候可能会慢
+```
+
+![image-20230130122217330](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301301222434.png)
+
+```
+# 拉取镜像
+docker pull xxx/mynginx:v1.0.0
+```
+
+拒绝拉取
+
+![image-20230129214833294](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301292148346.png)
+
+准备一个pod
+
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: private-jiangteddy-test
+spec:
+  containers:
+  - name: private-jiangteddy-test
+    image: jiangteddy2023/mynginx:v1.0.0
+```
+
+```
+vi mypod.yaml
+
+# 复制上面配置
+
+kubectl apply -f mypod.yaml
+
+kubectl get pod
+```
+
+因为权限问题下载失败
+
+![image-20230129215816426](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301292158486.png)
+
+![image-20230129215933963](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301292159049.png)
+
+可视化界面 查看错误描述：也是没有权限。
+
+```
+# 删除配置文件 创建的错误 Pod
+kubectl delete -f mypod.yaml
+```
+
+
+
+#### 5.5.2 创建Secret 
+
+```
+kubectl create secret docker-registry jiangteddy-test-secret \
+--docker-username=jiangteddy \
+--docker-password=123456 \
+--docker-email=xxxxxx@163.com
+
+##命令格式如下
+kubectl create secret docker-registry regcred \
+  --docker-server=<你的镜像仓库服务器> \
+  --docker-username=<你的用户名> \
+  --docker-password=<你的密码> \
+  --docker-email=<你的邮箱地址>
+```
+
+
+
+```
+# 查看
+kubectl get secret
+
+kubectl get secret jiangteddy-test-secret -oyaml
+```
+
+![image-20230129220623600](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301292206656.png)
+
+ 重新修改之前的yaml文件
+
+```
+
+```
+
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: private-jiangteddy-test
+spec:
+  containers:
+  - name: private-jiangteddy-test
+    image: jiangteddy2023/mynginx:v1.0.0
+  # 加上 Secret  
+  imagePullSecrets:
+  - name: jiangteddy-test-secret
+```
+
+
+
+```
+vi mypod.yaml
+
+# 复制上面配置
+
+kubectl apply -f mypod.yaml
+
+kubectl get pod
+```
+
+使用 Secret 后，可以成功 拉取下来了。
+
+![image-20230130122102621](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301301221754.png)
+
+
+
+
+
+## 6 Helm
+
+   在 Kubernetes 中，应用管理是需求最多、挑战最大的领域。 Helm 项目提供了一个统一软件打包方式，支持版本控制，可以大大简化 Kubernetes 应用分发与部署中的复杂性。
+
+- **Chart**：一个 Helm 包，其中包含了运行一个应用所需要的镜像、依赖和资源定义等，还可能包含 Kubernetes 集群中的服务定义，类似 Homebrew 中的 formula、APT 的 dpkg 或者 Yum 的 rpm 文件。
+- **Release**：使用 `helm install` 命令在 Kubernetes 集群中部署的 Chart 称为 Release。
+- **Repository**：用于发布和存储 Chart 的存储库。
+
+Helm 有两个重要得概念：chart 和 release
+
+chart ：是创建一个应用的信息集合，包括各种 kubernetes 对象得配置模板、参数定义、依赖关系、文档说明等，可以将 chart 想象成 yum 中的软件安装包
+
+release ：是 chart 的运行实例，代表了一个正在运行的应用。当 chart 被安装到 kubernetes 集群，就会生成一个 release，chart 能够多次安装到同一个集群，但是只会有一个 release
+
+
+### 6.1 如何安装
+
+离线安装，先下载安装包
+
+```
+ https://get.helm.sh/helm-v3.8.2-linux-amd64.tar.gz
+```
+
+解压
+
+```
+tar -zxvf helm-v3.8.2-linux-amd64.tar.gz
+```
+
+复制
+
+```
+cp linux-amd64/helm /usr/local/bin
+helm version
+```
+
+添加 chart 源
+
+```
+helm repo add bitnami https://charts.bitnami.com/bitnami
+```
+
+
+
+### 6.2 基础操作
+
+查询当前集群有哪些 chart 库
+
+```
+# 查看当前配置的仓库地址
+$ helm repo list
+
+# 删除默认仓库，默认在国外pull很慢
+$ helm repo remove stable
+
+# 添加几个常用的仓库,可自定义名字
+$ helm repo add stable https://kubernetes.oss-cn-hangzhou.aliyuncs.com/charts
+$ helm repo add kaiyuanshe http://mirror.kaiyuanshe.cn/kubernetes/charts
+$ helm repo add azure http://mirror.azure.cn/kubernetes/charts
+$ helm repo add dandydev https://dandydeveloper.github.io/charts
+$ helm repo add bitnami https://charts.bitnami.com/bitnami
+
+# 搜索chart
+$ helm search repo redis
+
+# 拉取chart包到本地
+$ helm pull bitnami/redis-cluster --version 8.1.2
+
+# 安装redis-ha集群，取名redis-ha，需要指定持存储类
+$ helm install redis-cluster bitnami/redis-cluster --set global.storageClass=nfs,global.redis.password=xiagao --version 8.1.2
+
+# 卸载
+$ helm uninstall redis-cluster
+```
+
+查找一个安装程序
+
+```
+helm search repo nginx
+```
+
+![image-20230130140210636](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301301402687.png)
+
+安装一个程序
+
+```
+helm install nginx bitnami/nginx
+```
+
+查询 svc
+
+```
+ kubectl get svc -n default
+```
+
+![image-20230130140345067](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301301403120.png)
+
+查看已安装的应用
+
+```
+helm list
+```
+
+删除一个应用
+
+```
+helm uninstall nginx
+```
+
+![image-20230130140501971](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301301405027.png)
+
+
+
+### 6.3 规范
+
+Helm Chart 是一种打包格式。Chart 是一个描述一组 Kubernetes 相关资源的文件集合。
+
+Chart 的所有相关文件都存储在一个目录中，该目录通常包含：
+
+![image-20230130135704676](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301301357730.png)
+
+您必须为 Chart 提供 `chart.yaml` 文件。下面是一个示例文件，每个字段都有说明。
+
+![image-20230130135814165](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301301358233.png)
+
+Values.yaml 和模板
+Helm Chart 模板采用 Go 模板语言编写并存储在 Chart 的 templates 文件夹。有两种方式可以为模板提供值：
+
+在 Chart 中创建一个包含可供引用的默认值的 values.yaml 文件。
+创建一个包含必要值的 YAML 文件，通过在命令行使用 helm install 命令来使用该文件
+
+![image-20230130135903449](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301301359510.png)
+
+- `imageRegistry`：Docker 镜像仓库。
+- `dockerTag`：Docker 镜像标签 (tag)。
+- `pullPolicy`：镜像拉取策略。
+- `storage`：存储后端，默认为 `minio`。
+
+示例如下：
+
+```
+imageRegistry: "quay.io/deis"
+
+dockerTag: "latest"
+
+pullPolicy: "Always"
+
+storage: "s3"
+
+```
+
+
+
+### 
+
+
+
+
+
+
+
+## 
 
