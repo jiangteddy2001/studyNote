@@ -30,6 +30,8 @@
 
 ## 2 Docker架构
 
+### 2.1架构
+
 ![image-20221210094746491](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212100947184.png)
 
 - Docker_Host：
@@ -57,7 +59,29 @@
 
  - 容器，由镜像启动起来正在运行中的程序
 
-  
+###   2.2 Docker的隔离技术
+
+如何理解Namespace
+
+Namespace是Linux内核用来隔离内核资源的方式。通过Namespace可以让一些进程只能看到与自己相关的一部分资源，而另外一些进程也只能看到与它们自己相关的资源，这两拨进程根本就感觉不到对方的存在。
+
+目前，Linux 内核实现了6种 Namespace:
+
+![image-20230201205815397](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302012058439.png)
+
+隔离原理：
+
+Linux Namespace 是 Linux 提供的一种内核级别环境隔离的方法，因此Linux 提供了多个 API 用来操作 Namespace，它们是 clone()、setns() 和 unshare() 函数，简单介绍一下三个系统调用的功能：
+
+1. clone() : 实现线程的系统调用，用来创建一个新的进程，并可以通过设计上述系统调用参数达到隔离的目的;
+2. unshare() : 使某进程脱离某个 namespace;
+3. setns() : 把某进程加入到某个 namespace;
+
+总结：
+
+Docker容器是在创建容器进程时，指定了这个进程所需要启用的一组Namespace参数，这样容器就只能看到到当前Namespace所限定的资源、文件、设备、状态，或者配置。而对于宿主机以及其他不相关的程序，它就完全看不到了，因此容器本质上就是一个特殊的进程。
+
+
 
 ## 3 安装Docker
 
@@ -75,21 +99,27 @@ docker官网地址： https://download.docker.com/linux/static/stable/
 
 然后执行命令：
 
+```
 tar -zxvf docker-20.10.19.tgz
 cp docker/* /usr/local/etc/docker/
+```
 
 增加系统启动服务
 
+```
 vim /etc/systemd/system/docker.service
 
 chmod +x /etc/systemd/system/docker.service
 systemctl daemon-reload
+```
 
 开启启动设置
 
+```
 systemctl enable docker.service
 
 systemctl start docker
+```
 
 然后执行docker -v 查看docker版本
 
@@ -99,6 +129,7 @@ Install Docker Engine on CentOS
 
 3.2.1移除旧的Docker包
 
+```
 sudo yum remove docker \
                   docker-client \
                   docker-client-latest \
@@ -107,6 +138,7 @@ sudo yum remove docker \
                   docker-latest-logrotate \
                   docker-logrotate \
                   docker-engine
+```
 
 
 
@@ -128,12 +160,15 @@ yum install -y docker-ce-20.10.7 docker-ce-cli-20.10.7  containerd.io-1.4.6
 
 3.2.4 启动
 
+```
 systemctl enable docker --now
+```
 
 
 
 3.2.5 配置加速
 
+```
 sudo mkdir -p /etc/docker
 sudo tee /etc/docker/daemon.json <<-'EOF'
 {
@@ -148,8 +183,7 @@ sudo tee /etc/docker/daemon.json <<-'EOF'
 EOF
 sudo systemctl daemon-reload
 sudo systemctl restart docker
-
-
+```
 
 
 
@@ -194,18 +228,18 @@ sudo systemctl restart docker
 
  //删除容器
 
+```
  docker rm  容器id/名字
-  docker rm -f mynginx   #强制删除正在运行中的
-
- #停止容器
+ docker rm -f mynginx   #强制删除正在运行中的
+  
+   #停止容器
   docker stop 容器id/名字
   #再次启动
   docker start 容器id/名字
-
- #应用开机自启
+  
+   #应用开机自启
   docker update 容器id/名字 --restart=always
-
- 
+```
 
 ###  4.3 修改容器内容
 
@@ -215,10 +249,12 @@ sudo systemctl restart docker
 
  2）挂载数据到外部修改
 
+```
  docker run --name=mynginx   \
   -d  --restart=always \
   -p  88:80 -v /data/html:/usr/share/nginx/html:ro  \
   nginx
+```
 
  修改页面只需要去主机的 /data/html/
 
@@ -232,7 +268,9 @@ docker commit -a "leifengyang"  -m "首页变化" 341d81f7504f guignginx:v1.0
 
 打包
 
+```
 docker save -o abc.tar guignginx:v1.0
+```
 
 别的机器加载这个镜像
 
@@ -242,7 +280,8 @@ docker load -i abc.tar
 
 ### 4.5 推送远程仓库
 
-推送镜像到docker hub；应用市场
+```
+#推送镜像到docker hub；应用市场
 docker tag local-image:tagname new-repo:tagname
 docker push new-repo:tagname
 
@@ -259,6 +298,7 @@ docker push leifengyang/guignginx:v1.0
 
 // 别的机器下载
 docker pull leifengyang/guignginx:v1.0
+```
 
 ### 4.6其他操作
 
@@ -282,11 +322,13 @@ docker cp  /data/conf/nginx.conf  5eff66eec7e1:/etc/nginx/nginx.conf
 
 ### 5.1 部署中间件Redis
 
+```
 docker run -v /home/jiang/redis/redis.conf:/etc/redis/redis.conf \
 -v /home/jiang/redis/data:/data \
 -d --name myredis \
 -p 6379:6379 \
 redis:latest  redis-server /etc/redis/redis.conf
+```
 
 
 
@@ -352,7 +394,27 @@ docker network inspect bridge
 
 ### 6.1 概念
 
-是一个用来定义和运行复杂应用的Docker工具。一个使用Docker容器的应用，通常由多个容器组成。使用Docker Compose不再需要使用shell脚本来启动容器。 
+ Compose 是 Docker 公司推出的一个工具软件，可以管理多个 Docker 容器组成一个应用。你需要定义一个 YAML 格式的配置文件docker-compose.yml，写好多个容器之间的调用关系。然后，只要一个命令，就能同时启动/关闭这些容器。  容器启动需要有加载顺序，比如 jar包，需要先启动mysql + redis容器。
+
+对 docker 容器集群的快速编排  （容器调用关系，一键启动，一键stop）
+
+就像容器 aplicaitonContext.xml 对bean对象统计集中管理起来
+
+java里有对象， docker 里有容器， docker-compose 就是管理容器。
+
+![image-20230201205952650](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302012059723.png)
+
+下载官网：https://docs.docker.com/compose/install/  选择 Linux，翻译成中文照着操作。
+
+查看 docker-compose 版本：docker-compose --version
+
+执行步骤：
+
+三步走：
+
+- 编写Dockerfile定义各个微服务应用并构建出对应的镜像文件
+- 使用 docker-compose.yml 定义一个完整业务单元，安排好整体应用中的各个容器服务。
+- 最后，执行docker-compose up命令来启动并运行整个应用程序，完成一键部署上线
 
 
 
@@ -368,15 +430,41 @@ docker network inspect bridge
 
 改名为docker-compose 复制到 /usr/local/bin/下
 
+```
 cp -f docker-compose-linux-x86_64 /usr/local/bin/docker-compose
 
 chmod +x /usr/local/bin/docker-compose
+```
 
 结束，输入命令docker-compose --version验证成功
 
+```
+docker-compose --version
+```
 
 
-### 6.3 使用Compose 
+
+### 6.3 基本命令
+
+| docker-compose -h                            | 查看帮助                                     |
+| -------------------------------------------- | -------------------------------------------- |
+| docker-compose up                            | 启动所有docker-compose服务                   |
+| docker-compose up -d                         | 启动所有docker-compose服务并后台运行         |
+| docker-compose down                          | 停止并删除容器、网络、卷、镜像。             |
+| docker-compose exec  yml里面的服务id         | 进入容器实例内部  docker-compose exec        |
+| docker-compose yml文件中写的服务id /bin/bash |                                              |
+| docker-compose ps                            | 展示当前docker-compose编排过的运行的所有容器 |
+| docker-compose top                           | 展示当前docker-compose编排过的容器进程       |
+| docker-compose logs  yml里面的服务id         | 查看容器输出日志                             |
+| docker-compose config                        | 检查配置                                     |
+| docker-compose config -q                     | 检查配置，有问题才有输出                     |
+| docker-compose restart                       | 重启服务                                     |
+| docker-compose start                         | 启动服务                                     |
+| docker-compose stop                          | 停止服务                                     |
+
+
+
+### 6.4使用Compose 
 
 1. 定义应用程序的Dockerfile文件，以便在任何地方都能复制；
 2. 定义docker-compose.yml 文件，以便他们可以在隔离环境中一起运行；
@@ -384,22 +472,296 @@ chmod +x /usr/local/bin/docker-compose
 
 简单的例子docker-compose.yml 
 
-version: "3.9"  # 从 v1.27.0 之后可选
+```
+version: '3'
 services:
-  web:
-    build: .
+  mysql:
+    image: mysql:5.7
+    container_name: mysql-5.7
+    privileged: true
+    restart: always
     ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_USER: jiang
+      MYSQL_PASS: 123456
+      TZ: Asia/Shanghai
+    command:
+      --wait_timeout=28800
+      --interactive_timeout=28800
+      --max_connections=1000
+      --default-authentication-plugin=mysql_native_password
+    volumes:
+      - "/home/jiang/mysql-5.7/data:/var/lib/mysql"
+      - "/home/jiang/mysql-5.7/config/my.cnf:/etc/mysql/my.cnf"
 
-      - "5000:5000"
-        volumes:
-            - .:/code
-                  - logvolume01:/var/log
-            links:
-                  - redis
-        redis:
-                image: redis
-      volumes:
-        logvolume01: {}
+```
+
+参数解析
+
+![image-20230201210543364](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302012105414.png)
+
+编写MYSQL的配置文件
+
+```
+[client]
+# 客户端来源数据的默认字符集
+default-character-set=utf8mb4
+
+[mysqld]
+# 服务端默认字符集
+character-set-server=utf8mb4
+# 连接层默认字符集
+collation-server=utf8mb4_unicode_ci
+
+[mysql]
+# 数据库默认字符集
+default-character-set=utf8mb4
+
+```
+
+命令
+
+```
+# 前台启动
+docker-compose -f docker-compose.yml up 
+
+# 守护进程启动
+docker-compose -f docker-compose.yml up -d
+
+# 停止
+docker-compse -f docker-compose.yml stop
+
+# 停止并删除容器
+docker-compose -f docker-compose.yml down
+
+
+```
+
+启动成功
+
+![image-20230201213252144](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302012132196.png)
+
+
+
+### 6.5 Docker Compose Yml文件介绍
+
+版本
+
+对于版本没什么介绍的，就是指定使用的版本；
+
+Services
+
+每个Service代表一个Container，与Docker一样，Container可以是从DockerHub中拉取到的镜像，也可以是本地Dockerfile Build的镜像。
+
+image
+
+标明image的ID，这个image ID可以是本地也可以是远程的，如果本地不存在，Docker Compose会尝试pull下来;
+
+```makefile
+image: ubuntu
+```
+
+build
+
+该参数指定Dockerfile文件的路径，Docker Compose会通过Dockerfile构建并生成镜像，然后使用该镜像;
+
+```bash
+build:
+  #构建的地址
+  context: /usr/local/docker-compose-demo
+  dockerfile: Dockerfile
+```
+
+ports
+
+暴露端口，指定宿主机到容器的端口映射，或者只指定容器的端口，则表示映射到主机上的随机端口，一般采用主机:容器的形式来映射端口；
+
+```yaml
+#暴露端口
+ports:
+  - 8081:8080/tcp
+```
+
+expose
+
+暴露端口，但不需要建立与宿主机的映射，只是会向链接的服务提供；
+
+environment
+
+加入环境变量，可以使用数组或者字典，只有一个key的环境变量可以在运行compose的机器上找到对应的值；
+
+env_file
+
+从一个文件中引入环境变量，该文件可以是一个单独的值或者一个列表，如果同时定义了environment，则environment中的环境变量会重写这些值；
+
+depends_on
+
+定义当前服务启动时，依赖的服务，当前服务会在依赖的服务启动后启动;
+
+```makefile
+depends_on: 
+  - docker-compose-demo02
+  - docker-compose-demo01
+```
+
+deploy
+
+该配置项在version 3里才引入，用于指定服务部署和运行时相关的参数；
+
+replicas
+
+指定副本数；
+
+```vbnet
+version: '3.4'
+services:
+  worker:
+    image: nginx:latest
+    deploy:
+      replicas: 6
+```
+
+restart_policy
+
+指定重启策略;
+
+```yaml
+version: "3.4"
+services:
+  redis:
+    image: redis:latest
+    deploy:
+      restart_policy:
+        condition: on-failure   #重启条件：on-failure, none, any
+        delay: 5s   # 等待多长时间尝试重启
+        max_attempts: 3 #尝试的次数
+        window: 120s    # 在决定重启是否成功之前等待多长时间
+```
+
+update_config
+
+定义更新服务的方式，常用于滚动更新;
+
+```yaml
+version: '3.4'
+services:
+  vote:
+    image: docker-compose-demo
+    depends_on:
+      - redis
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 2  # 一次更新2个容器
+        delay: 10s  # 开始下一组更新之前，等待的时间
+        failure_action：pause  # 如果更新失败，执行的动作：continue, rollback, pause，默认为pause
+        max_failure_ratio： 20 # 在更新过程中容忍的失败率
+        order: stop-first   # 更新时的操作顺序，停止优先（stop-first，先停止旧容器，再启动新容器）还是开始优先（start-first，先启动新容器，再停止旧容器），默认为停止优先，从version 3.4才引入该配置项
+```
+
+resources
+
+限制服务资源；
+
+```yaml
+version: '3.4'
+services:
+  redis:
+    image: redis:alpine
+    deploy:
+      resources:
+        #限制CPU的使用率为50%内存50M
+        limits:
+          cpus: '0.50'
+          memory: 50M
+        #始终保持25%的使用率内存20M
+        reservations:
+          cpus: '0.25'
+          memory: 20M
+```
+
+healthcheck
+
+执行健康检查;
+
+```bash
+healthcheck:
+  test: ["CMD", "curl", "-f", "http://localhost"]   # 用于健康检查的指令
+  interval: 1m30s   # 间隔时间
+  timeout: 10s  # 超时时间
+  retries: 3    # 重试次数
+  start_period: 40s # 启动多久后开始检查
+```
+
+restart
+
+重启策略;
+
+```avrasm
+#默认的重启策略，在任何情况下都不会重启容器
+restart: "no"
+#容器总是重新启动
+restart: always
+#退出代码指示失败错误，则该策略会重新启动容器
+restart: on-failure
+#重新启动容器，除非容器停止
+restart: unless-stopped
+```
+
+networks
+
+网络类型，可指定容器运行的网络类型;
+
+```yaml
+#指定对应的网络
+networks:
+  - docker-compose-demo-net
+  
+  
+networks:
+  docker-compose-demo-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24
+          gateway: 192.168.1.1
+```
+
+ipv4_address, ipv6_address
+
+加入网络时，为此服务指定容器的静态 IP 地址；
+
+```yaml
+version: "3.9"
+
+services:
+  app:
+    image: nginx:alpine
+    networks:
+      app_net:
+        ipv4_address: 172.16.238.10
+        ipv6_address: 2001:3984:3989::10
+
+networks:
+  app_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.16.238.0/24"
+        - subnet: "2001:3984:3989::/64"
+```
+
+Networks
+
+网络决定了服务之间以及服务和外界之间如何去通信，在执行docker-compose up的时候，docker会默认创建一个默认网络，创建的服务也会默认的使用这个默认网络。服务和服务之间，可以使用服务的名字进行通信，也可以自己创建网络，并将服务加入到这个网络之中，这样服务之间可以相互通信，而外界不能够与这个网络中的服务通信，可以保持隔离性。
+
+Volumes
+
+挂载主机路径或命名卷，指定为服务的子选项。可以将主机路径挂载为单个服务定义的一部分，无需在顶级volume中定义。如果想在多个服务中重用一个卷，则在顶级volumes key 中定义一个命名卷，将命名卷与服务一起使用。
+
+
 
 ## 7 Docker Swarm
 
@@ -415,9 +777,9 @@ Swarm是[Docker](https://so.csdn.net/so/search?q=Docker&spm=1001.2101.3001.7020)
 
 在结构图可以看出 Docker Client使用Swarm对 集群(Cluster)进行调度使用。
 
+![image-20230201213554154](C:/Users/Administrator/AppData/Roaming/Typora/typora-user-images/image-20230201213554154.png)
 
-
-### 7.2概念
+### 7.2 概念
 
 1.Swarm
 集群的管理和编排是使用嵌入docker引擎的SwarmKit，可以在docker初始化时启动swarm模式或者加入已存在的swarm
@@ -565,123 +927,51 @@ docker stack几乎能作docker-compose全部的事情 （生产部署docker stac
 
 
 
-## 10 Docker安全
+## 10 Docker数据卷
 
-### 10.1Docker 架构缺陷与安全机制
+容器数据卷的方式完成数据的持久化，重要资料backup（备份）
 
-1、容器之间的局域网攻击
-主机上的容器之间可以构成局域网，因此针对局域网的 ARP 欺骗、嗅探、广播风暴等攻 击方式便可以用上。
-所以，在一个主机上部署多个容器需要合理的配置网络，设置 iptable 规则。
+将容器内的数据 备份 + 持久化 到本地主机目录。
 
-2、DDoS 攻击耗尽资源
-Cgroups 安全机制就是要防止此类攻击的，不要为单一的容器分配过多的资源即可避免此类问题。
+### 10.1添加容器卷
 
-3、有漏洞的系统调用
-Docker与虚拟机的一个重要的区别就是Docker与宿主机共用一个操作系统内核。
-一旦宿主内核存在可以越权或者提权漏洞，尽管Docker使用普通用户执行，在容器被入侵时，攻击者还可以利用内核漏洞跳到宿主机做更多的事情。
+docker run -it --privileged=true -v /宿主机绝对路径目录:/容器内目录      镜像名
 
-4、共享root用户权限
-如果以 root 用户权限运行容器，容器内的 root 用户也就拥有了宿主机的root权限。
+docker run -it --privileged=true -v /root/01Sofeware/10Docker/host_data:/tmp/docker_data --name=u1 ubuntu
+
+就会进入到 ubuntu 镜像创建的一个容器里，
+
+docker inspect 803b5d9531c0  查看容器挂载信息。
 
 
 
-### 10.2 Docker 安全基线标准
+### 10.2 读写规则
 
-1、内核级别
-（1）及时更新内核。
-（2）User NameSpace（容器内的 root 权限在容器之外处于非高权限状态）。
-（3）Cgroups（对资源的配额和度量）。
-（4）SELiux/AppArmor/GRSEC（控制文件访问权限）。
-（5）Capability（权限划分）。
-（6）Seccomp（限定系统调用）。
-（7）禁止将容器的命名空间与宿主机进程命名空间共享。
+上面默认 不加 是可读可写的。
 
-
-2、主机级别
-（1）为容器创建独立分区。
-（2）仅运行必要的服务。
-（3）禁止将宿主机上敏感目录（例如：root目录可能导致目录被删，进而导致grub文件丢失无法开机）映射到容器。
-（4）对 Docker 守护进程、相关文件和目录进行审计。
-（5）设置适当的默认文件描述符数。
-（文件描述符：内核（kernel）利用文件描述符（file descriptor）来访问文件。文件描述符是非负整数。
-打开现存文件或新建文件时，内核会返回一个文件描述符。读写文件也需要使用文件描述符来指定待读写的文件）
-（6）用户权限为 root 的 Docker 相关文件的访问权限应该为 644 或者更低权限（例：600），只有属主才可进行操作。
-（7）周期性检查每个主机的容器清单，并清理不必要的容器。
-
-
-3、网络级别
-（1）通过 iptables 设定规则实现禁止或允许容器之间网络流量。
-（2）允许 Docker 修改 iptables。
-（3）禁止将 Docker 绑定到其他 IP/Port 或者 Unix Socket。
-（4）禁止在容器上映射特权端口（例如apache的80和tomcat的8080端口）。
-（5）容器上只开放所需要的端口。
-（6）禁止在容器上使用主机网络模式（主机网络可能是局域网，可能导致局域网内被攻击）。
-（7）若宿主机有多个网卡，将容器进入流量绑定到特定的主机网卡上（独立区域，独立设置安全机制）。
-
-4、镜像级别
-（1）创建本地镜像仓库服务器。
-（2）镜像中软件都为最新版本。
-（3）使用可信镜像文件，并通过安全通道下载。
-（4）重新构建镜像而非对容器和镜像打补丁。
-（5）合理管理镜像标签，及时移除不再使用的镜像（一定要建项目，要不然打标签也没什么意义）。
-（6）使用镜像扫描。
-（7）使用镜像签名。
-
-
-5、容器级别
-（1）容器最小化，操作系统镜像最小集。
-（2）容器以单一主进程的方式运行。
-（3）禁止 privileged 标记使用特权容器（做降权处理，例如：防止到哪都是root权限）。
-（4）禁止在容器上运行 ssh 服务（最好用exec）。
-（5）以只读的方式挂载容器的根目录系统。
-（6）明确定义属于容器的数据盘符。
-（7）通过设置 on-failure 限制容器尝试重启的次数，容器反复重启容易丢失数据。
-（8）限制在容器中可用的进程树，以防止 fork bomb。（fork炸弹又叫进程炸弹，迅速增长子进程，耗尽系统进程数量）
-
-6、其他设置
-（1）定期对宿主机系统及容器进行安全审计。
-（2）使用最少资源和最低权限运行容器。
-（3）避免在同一宿主机上部署大量容器，维持在一个能够管理的数量（48核心的服务器控制容器在80到100之间）。
-（4）监控 Docker 容器的使用，性能以及其他各项指标。
-（5）增加实时威胁检测和事件响应功能。
-（6）使用中心和远程日志收集服务
+加个 ro（read only），容器里只能读，不能写。
 
 
 
-### 10.3 安全控制策略
+### 10.3 卷的继承和共享
 
-1、 Docker remote api 访问控制
+```
+docker run -it --privileged=true --volumes-from 父类 --name u2 ubuntu
+docker run -it --privileged=true --volumes-from u1 --name u2 ubuntu
 
-临时更改
-docker -d -H uninx:///var/run/docker.sock -H tcp://192.168.222.10:2375
-或者永久更改
-vim /usr/lib/systemd/system/docker.service
-//注释之前的ExecStart，添加下面的ExecStart
-//开放本地监听地址和端口
-ExecStart=/usr/bin/dockerd -H unix:///var/run/docker.sock -H tcp://192.168.222.10:2375
-systemctl daemon-reload
-systemctl restart docker
-//客户端操作实现远程调用
-docker -H tcp://192.168.222.10 images
+```
 
-2、限制流量流向
 
-firewall-cmd --permanent --zone=public --add-rich-rule="rule family="ipv4" source address="192.168.112.0/24" reject"
-firewall-cmd --reload
-
-3、镜像安全
-
-Docker 镜像安全扫描，在镜像仓库客户端使用证书认证，对下载的镜像进行检查。
-通过与 CVE 数据库同步扫描镜像，一旦发现漏洞则通知用户处理，或者直接阻止镜像继续构建。
-
-如果公司使用的是自己的镜像源，可以跳过此步；否则，至少需要验证 baseimage 的 md5 等特征值，确认一致后再基于 baseimage 进一步构建。
-一般情况下，要确保只从受信任的库中获取镜像，并且不建议使用–insecure-registry=[] 参数，推荐使用harbor私有仓库。
-
-4、密钥和数据完整性
-
-Docker-TLS
 
 ## 11 Docker网络
+
+启动docker后，产生一个 docker0 的虚拟网桥。
+
+![image-20230201182229663](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302011822768.png)
+
+安装完 docker 默认创建3个网络模式：
+
+docker network ls
 
 ### 11.1 容器查看网络
 
@@ -717,6 +1007,171 @@ docker exec -it fdb2b3e99e93（容器ID） /bin/bash
 
 
 
-11.3 查看端口映射
+### 11.3 网络模式
 
-docker 
+![image-20230201203255816](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302012032866.png)
+
+Docker使用Linux桥接，在宿主机虚拟一个Docker容器网桥(docker0)，Docker启动一个容器时会根据Docker网桥的网段分配给容器一个IP地址，称为Container-IP，同时Docker网桥是每个容器的默认网关。因为在同一宿主机内的容器都接入同一个网桥，这样容器之间就能够通过容器的Container-IP直接通信。
+
+网桥docker0创建一对对等虚拟设备接口一个叫veth，另一个叫eth0，成对匹配。
+
+- 整个宿主机的网桥模式都是docker0，类似一个交换机有一堆接口，每个接口叫veth，在本地主机和容器内分别创建一个虚拟接口，并让他们彼此联通（这样一对接口叫veth pair）；
+- 每个容器实例内部也有一块网卡，每个接口叫eth0；
+- docker0上面的每个veth匹配某个容器实例内部的eth0，两两配对，一一匹配。
+
+通过上述，将宿主机上的所有容器都连接到这个内部网络上，两个容器在同一个网络下,会从这个网关下各自拿到分配的ip，此时两个容器的网络是互通的。
+
+![image-20230201203348970](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302012033023.png)
+
+
+
+
+
+
+
+## 12 Portainer - Docker
+
+Portainer 是一款轻量级的应用，它提供了图形化界面，用于方便地管理Docker环境，包括单机环境和集群环境。
+
+官网：https://docs.portainer.io/v/ce-2.9/start/install/server/docker/linux
+
+### 12.1 安装
+
+docker命令安装：
+
+```
+docker run -d -p 8000:8000 -p 9000:9000 --name portainer --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:latest
+```
+
+安装完毕后，访问地址：
+
+```
+http://192.168.133.109:9000/
+```
+
+第一次登录需要创建admin。
+
+![image-20230201200727742](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302012007802.png)
+
+密码：admin123
+
+![image-20230201200859817](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302012008877.png)
+
+
+
+### 12.2 使用
+
+![image-20230201200940419](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302012009486.png)
+
+![image-20230201202253884](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302012022957.png)
+
+12.3 配置Nginx
+
+拉取镜像
+
+![image-20230201202540183](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302012025244.png)
+
+![image-20230201202732962](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302012027039.png)
+
+
+
+Deploy the container：部署容器。
+
+![image-20230201203007813](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302012030860.png)
+
+测试，访问地址：http://192.168.133.109:8080/
+
+![image-20230201203102106](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302012031148.png)
+
+
+
+## 13 CIG - Docker重量级监控系统
+
+### 13.1 简介
+
+CAdvisor监控收集 + InfluxDB存储数据 + Granfana展示图表
+
+```
+docker stats  
+#通过docker stats命令可以很方便的看到当前宿主机上所有容器的CPU,内存以及网络流量等数据，一般小公司够用了。。。。
+#但是，
+#docker stats统计结果只能是当前宿主机的全部容器，数据资料是实时的，没有地方存储、没有健康指标过线预警等功能
+```
+
+![image-20230201212927737](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302012129788.png)
+
+
+
+### 13.2 安装CIG
+
+```
+mkdir cig
+cd cig
+vim docker-compose.yml
+
+```
+
+```
+version: '3.1'
+
+volumes:
+grafana_data: {}
+
+services:
+influxdb:
+image: tutum/influxdb:0.9
+restart: always
+environment:
+- PRE_CREATE_DB=cadvisor
+ports:
+- "8083:8083"
+- "8086:8086"
+volumes:
+- ./data/influxdb:/data
+
+cadvisor:
+image: google/cadvisor
+links:
+- influxdb:influxsrv
+command: -storage_driver=influxdb -storage_driver_db=cadvisor -storage_driver_host=influxsrv:8086
+restart: always
+ports:
+- "8080:8080"
+volumes:
+- /:/rootfs:ro
+- /var/run:/var/run:rw
+- /sys:/sys:ro
+- /var/lib/docker/:/var/lib/docker:ro
+
+grafana:
+user: "104"
+image: grafana/grafana
+user: "104"
+restart: always
+links:
+- influxdb:influxsrv
+ports:
+- "3000:3000"
+volumes:
+- grafana_data:/var/lib/grafana
+environment:
+- HTTP_USER=admin
+- HTTP_PASS=admin
+- INFLUXDB_HOST=influxsrv
+- INFLUXDB_PORT=8086
+- INFLUXDB_NAME=cadvisor
+- INFLUXDB_USER=root
+- INFLUXDB_PASS=root
+```
+
+```
+docker-compose config -q #检查配置是否有问题
+docker-compose up -d # -d 后台
+docker ps # 查看是否成功启动
+
+```
+
+
+
+### 13.3 配置
+
