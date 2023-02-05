@@ -801,9 +801,9 @@ rolebinding.rbac.authorization.k8s.io/leader-locking-nfs-client-provisioner crea
 #### 2.7.1 下载核心文件
 
 ```
-wget https://github.com/kubesphere/ks-installer/releases/download/v3.1.1/kubesphere-installer.yaml
+wget https://github.com/kubesphere/ks-installer/releases/download/v3.1.1/kubesphere-installer.yaml --no-check-certificate
 
-wget https://github.com/kubesphere/ks-installer/releases/download/v3.1.1/cluster-configuration.yaml
+wget https://github.com/kubesphere/ks-installer/releases/download/v3.1.1/cluster-configuration.yaml --no-check-certificate
 ```
 
 #### 2.7.2 修改cluster-configuration
@@ -821,7 +821,130 @@ wget https://github.com/kubesphere/ks-installer/releases/download/v3.1.1/cluster
 修改
 
 ```
-vim cluster-configuration.yaml
+vi cluster-configuration.yaml
+```
+
+```
+
+apiVersion: installer.kubesphere.io/v1alpha1
+kind: ClusterConfiguration
+metadata:
+  name: ks-installer
+  namespace: kubesphere-system
+  labels:
+    version: v3.1.1
+spec:
+  persistence:
+    storageClass: ""        # If there is no default StorageClass in your cluster, you need to specify an existing StorageClass here.
+  authentication:
+    jwtSecret: ""           # Keep the jwtSecret consistent with the Host Cluster. Retrieve the jwtSecret by executing "kubectl -n kubesphere-system get cm kubesphere-config -o yaml | grep -v "apiVersion" | grep jwtSecret" on the Host Cluster.
+  local_registry: ""        # Add your private registry address if it is needed.
+  etcd:
+    monitoring: true       # Enable or disable etcd monitoring dashboard installation. You have to create a Secret for etcd before you enable it.
+    endpointIps: 192.168.133.110  # etcd cluster EndpointIps. It can be a bunch of IPs here.
+    port: 2379              # etcd port.
+    tlsEnable: true
+  common:
+    redis:
+      enabled: true
+    openldap:
+      enabled: true
+    minioVolumeSize: 20Gi # Minio PVC size.
+    openldapVolumeSize: 2Gi   # openldap PVC size.
+    redisVolumSize: 2Gi # Redis PVC size.
+    monitoring:
+      # type: external   # Whether to specify the external prometheus stack, and need to modify the endpoint at the next line.
+      endpoint: http://prometheus-operated.kubesphere-monitoring-system.svc:9090 # Prometheus endpoint to get metrics data.
+    es:   # Storage backend for logging, events and auditing.
+      # elasticsearchMasterReplicas: 1   # The total number of master nodes. Even numbers are not allowed.
+      # elasticsearchDataReplicas: 1     # The total number of data nodes.
+      elasticsearchMasterVolumeSize: 4Gi   # The volume size of Elasticsearch master nodes.
+      elasticsearchDataVolumeSize: 20Gi    # The volume size of Elasticsearch data nodes.
+      logMaxAge: 7                     # Log retention time in built-in Elasticsearch. It is 7 days by default.
+      elkPrefix: logstash              # The string making up index names. The index name will be formatted as ks-<elk_prefix>-log.
+      basicAuth:
+        enabled: false
+        username: ""
+        password: ""
+      externalElasticsearchUrl: ""
+      externalElasticsearchPort: ""
+  console:
+    enableMultiLogin: true  # Enable or disable simultaneous logins. It allows different users to log in with the same account at the same time.
+    port: 30880
+  alerting:                # (CPU: 0.1 Core, Memory: 100 MiB) It enables users to customize alerting policies to send messages to receivers in time with different time intervals and alerting levels to choose from.
+    enabled: true         # Enable or disable the KubeSphere Alerting System.
+    # thanosruler:
+    #   replicas: 1
+    #   resources: {}
+  auditing:                # Provide a security-relevant chronological set of records，recording the sequence of activities happening on the platform, initiated by different tenants.
+    enabled: true         # Enable or disable the KubeSphere Auditing Log System. 
+  devops:                  # (CPU: 0.47 Core, Memory: 8.6 G) Provide an out-of-the-box CI/CD system based on Jenkins, and automated workflow tools including Source-to-Image & Binary-to-Image.
+    enabled: true             # Enable or disable the KubeSphere DevOps System.
+    jenkinsMemoryLim: 2Gi      # Jenkins memory limit.
+    jenkinsMemoryReq: 1500Mi   # Jenkins memory request.
+    jenkinsVolumeSize: 8Gi     # Jenkins volume size.
+    jenkinsJavaOpts_Xms: 512m  # The following three fields are JVM parameters.
+    jenkinsJavaOpts_Xmx: 512m
+    jenkinsJavaOpts_MaxRAM: 2g
+  events:                  # Provide a graphical web console for Kubernetes Events exporting, filtering and alerting in multi-tenant Kubernetes clusters.
+    enabled: true         # Enable or disable the KubeSphere Events System.
+    ruler:
+      enabled: true
+      replicas: 2
+  logging:                 # (CPU: 57 m, Memory: 2.76 G) Flexible logging functions are provided for log query, collection and management in a unified console. Additional log collectors can be added, such as Elasticsearch, Kafka and Fluentd.
+    enabled: true         # Enable or disable the KubeSphere Logging System.
+    logsidecar:
+      enabled: true
+      replicas: 2
+  metrics_server:                    # (CPU: 56 m, Memory: 44.35 MiB) It enables HPA (Horizontal Pod Autoscaler).
+    enabled: false                   # Enable or disable metrics-server.
+  monitoring:
+    storageClass: ""                 # If there is an independent StorageClass you need for Prometheus, you can specify it here. The default StorageClass is used by default.
+    # prometheusReplicas: 1          # Prometheus replicas are responsible for monitoring different segments of data source and providing high availability.
+    prometheusMemoryRequest: 400Mi   # Prometheus request memory.
+    prometheusVolumeSize: 20Gi       # Prometheus PVC size.
+    # alertmanagerReplicas: 1          # AlertManager Replicas.
+  multicluster:
+    clusterRole: none  # host | member | none  # You can install a solo cluster, or specify it as the Host or Member Cluster.
+  network:
+    networkpolicy: # Network policies allow network isolation within the same cluster, which means firewalls can be set up between certain instances (Pods).
+      # Make sure that the CNI network plugin used by the cluster supports NetworkPolicy. There are a number of CNI network plugins that support NetworkPolicy, including Calico, Cilium, Kube-router, Romana and Weave Net.
+      enabled: true # Enable or disable network policies.
+    ippool: # Use Pod IP Pools to manage the Pod network address space. Pods to be created can be assigned IP addresses from a Pod IP Pool.
+      type: calico # Specify "calico" for this field if Calico is used as your CNI plugin. "none" means that Pod IP Pools are disabled.
+    topology: # Use Service Topology to view Service-to-Service communication based on Weave Scope.
+      type: none # Specify "weave-scope" for this field to enable Service Topology. "none" means that Service Topology is disabled.
+  openpitrix: # An App Store that is accessible to all platform tenants. You can use it to manage apps across their entire lifecycle.
+    store:
+      enabled: true # Enable or disable the KubeSphere App Store.
+  servicemesh:         # (0.3 Core, 300 MiB) Provide fine-grained traffic management, observability and tracing, and visualized traffic topology.
+    enabled: true     # Base component (pilot). Enable or disable KubeSphere Service Mesh (Istio-based).
+  kubeedge:          # Add edge nodes to your cluster and deploy workloads on edge nodes.
+    enabled: true   # Enable or disable KubeEdge.
+    cloudCore:
+      nodeSelector: {"node-role.kubernetes.io/worker": ""}
+      tolerations: []
+      cloudhubPort: "10000"
+      cloudhubQuicPort: "10001"
+      cloudhubHttpsPort: "10002"
+      cloudstreamPort: "10003"
+      tunnelPort: "10004"
+      cloudHub:
+        advertiseAddress: # At least a public IP address or an IP address which can be accessed by edge nodes must be provided.
+          - ""            # Note that once KubeEdge is enabled, CloudCore will malfunction if the address is not provided.
+        nodeLimit: "100"
+      service:
+        cloudhubNodePort: "30000"
+        cloudhubQuicNodePort: "30001"
+        cloudhubHttpsNodePort: "30002"
+        cloudstreamNodePort: "30003"
+        tunnelNodePort: "30004"
+    edgeWatcher:
+      nodeSelector: {"node-role.kubernetes.io/worker": ""}
+      tolerations: []
+      edgeWatcherAgent:
+        nodeSelector: {"node-role.kubernetes.io/worker": ""}
+        tolerations: []
 ```
 
 
@@ -901,6 +1024,11 @@ kubectl get pods  -n istio-system | grep Evicted
 
 #删除Evicted的pod
 kubectl get pods -n istio-system | grep Evicted |awk '{print $1}' |xargs kubectl -n istio-system delete pod
+kubectl get pods -n kubesphere-system | grep Evicted |awk '{print $1}' |xargs kubectl -n kubesphere-system delete pod
+
+kubectl get pods -n kubesphere-system  | grep Evicted |awk '{print $1}' |xargs kubectl -n kubesphere-system  delete pod
+
+kubectl get pods -n kubesphere-devops-system  | grep Evicted |awk '{print $1}' |xargs kubectl -n kubesphere-devops-system delete pod
 ```
 
 ![image-20230123184214693](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301231842740.png)
@@ -911,7 +1039,9 @@ kubectl get pods -n istio-system | grep Evicted |awk '{print $1}' |xargs kubectl
 
 Kubernetes 节点上的资源会被 Pod 以及系统进程所使用 , 如果没有做任何限制的话 , 节点上的资源会被耗尽
 
+解决办法：
 
+增加虚拟机硬盘空间和内存、CPU
 
 
 
@@ -927,7 +1057,7 @@ Kubernetes 节点上的资源会被 Pod 以及系统进程所使用 , 如果没�
 
 ![image-20230123193833553](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301231938651.png)
 
-密码：Jiang123
+
 
 ![image-20230123194020924](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301231940987.png)
 
@@ -1256,7 +1386,7 @@ docker run -d -p 6379:6379 --restart=always \
  redis-server /etc/redis/redis.conf
 ```
 
-
+以上资料供参考
 
 
 
@@ -1274,9 +1404,15 @@ docker run -d -p 6379:6379 --restart=always \
 
 
 
+![image-20230202192917067](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302021929219.png)
+
+![image-20230202193218920](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302021932970.png)
+
 ![image-20230125164916886](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301251649958.png)
 
 #### 4.4.3 添加存储和配置文件
+
+![image-20230202193145928](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302021931010.png)
 
 ![image-20230125165239656](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301251652745.png)
 
@@ -1466,8 +1602,14 @@ ALTER TABLE his_config_info ADD COLUMN encrypted_data_key text NOT NULL COMMENT 
 Windows启动命令(standalone代表着单机模式运行，非集群模式):
 
 ```
- cd D:\dev\nacos-server-2.1.2\nacos\bin
+ cd D:\dev\nacos-server-2.0.3\nacos\bin
  startup.cmd  -m standalone
+```
+
+访问地址：
+
+```
+http://localhost:8848/nacos
 ```
 
 账号：nacos
@@ -1500,33 +1642,676 @@ npm install --registry=https://registry.npmmirror.com
 
 ![image-20230126224427271](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301262244319.png)
 
+启动前端项目
+
+```
+npm run dev
+```
+
+访问地址
+
+```
+http://localhost/login
+```
+
+启动redis,检查配置
+
+![image-20230130222551282](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301302225399.png)
+
+![image-20230130222611806](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301302226865.png)
+
+启动网关模块RuoYiGatewayApplication
+
+启动 RuoYiAuthApplication
+
+启动 RuoYiSystemApplication
+
+
+
+![image-20230130223422336](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301302234389.png
+
+![image-20230130223757707](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301302237898.png)
+
+启动成功
+
+![image-20230130224217190](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301302242251.png)
+
+![image-20230130224418609](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301302244676.png)
+
+
+
 
 
 ## 6 SpringCloud云部署
 
-### 6.1 上云准备和优化
+![image-20230131155935504](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301311559629.png)
+
+
+
+### 6.1 迁移数据库
+
+把本地的数据导入KubeSphere已部署的mysql
+
+![image-20230131174038604](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301311740682.png)
+
+
+
+### 6.2 中间件部署
+
+#### 6.2.1 nacos上云基础分析
+
+nacos集群部署架构图
+
+![image-20230131175001477](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301311750545.png)
+
+![image-20230131184022611](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301311840697.png)
+
+ ![image-20230131184606350](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301311846420.png)
+
+
+
+![image-20230131184733297](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301311847348.png)
+
+![image-20230131184905269](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301311849326.png)
+
+```
+docker pull nacos/nacos-server:v2.0.3
+```
+
+![image-20230131185001969](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301311850023.png)
+
+![image-20230131185238155](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301311852205.png)
+
+![image-20230131185053235](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301311850285.png)
+
+![image-20230131185123782](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301311851828.png)
+
+![image-20230131185403947](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301311854997.png)
+
+nacos的配置文件要挂载
+
+![image-20230131185715740](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301311902653.png)
+
+#### 6.2.2 部署高可用nacos
+
+把之前建立的删除
+
+![image-20230131185850330](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301311858384.png)
+
+创建配置
+
+![image-20230131204448219](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301312044271.png)
+
+下一步，添加application.properties
+
+![image-20230131204638407](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301312046475.png)
+
+修改一下配置文件里的数据库地址，参照容器里的mysql地址
+
+![image-20230131205552699](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301312055745.png)
+
+![image-20230131205912606](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301312059687.png)
+
+修改cluster.conf里的内容，增加DNS
+
+DNS在这里查看
+
+![image-20230201093618732](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302010936513.png)
+
+点击图标旁的终端按钮
+
+![](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302010938968.png)
+
+```
+ping his-nacos.his
+```
+
+![image-20230201094309282](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302010943335.png)
+
+```
+his-nacos-v1-0.his-nacos.his.svc.cluster.local
+```
+
+修改cluster.conf
+
+```
+his-nacos-v1-0.his-nacos.his.svc.cluster.local:8848
+his-nacos-v1-1.his-nacos.his.svc.cluster.local:8848
+his-nacos-v1-2.his-nacos.his.svc.cluster.local:8848
+
+```
+
+![image-20230201113947090](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302011139175.png)
+
+再次创建nacos服务（2.0.3有问题，建议用2.1.*版本）
+
+```
+nacos/nacos-server:v2.0.3
+```
+
+![image-20230202151757567](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302021517686.png)
+
+![image-20230201114441395](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302011144462.png)
+
+环境变量
+
+根据自己服务器的大小来定，这里只要设了`JVM_XMS`、`JVM_XMX`、JVM_XMN
+
+![image-20230202151821005](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302021518058.png)
+
+挂载配置文件
+
+![image-20230201114734870](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302011147933.png)
+
+①：之前创建好的配置
+③：/home/nacos/conf/application.properties
+其中：/home/nacos/conf是nacos镜像的配置文件目录；application.properties：配置文件名称；
+
+④：添加子路径，就是具体的配置文件名：application.properties。
+
+nacos/nacos-server:v2.0.3
+
+勾选：选择特定的键和路径；
+
+![image-20230201114832727](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302011148782.png)
+
+相同方法再挂载另一个/home/nacos/conf/cluster.conf
+
+![image-20230201115205672](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302011152732.png)
+
+
+
+```
+ kubectl get pod -n his -o wide
+ kubectl describe pod his-nacos-v1-2 -n his | grep -A 20 Events
+ 
+ # k8s集群的检查
+ kubectl describe node
+
+```
+
+
+
+#### 6.2.3 暴露对外服务
+
+![image-20230202234546180](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302022345301.png)
+
+
+
+http://192.168.133.110:30488/nacos/#/login
+
+![image-20230203114256992](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302031143181.png)
+
+### 6.3 DockerFile配置
+
+#### 6.3.1 DockerFile模板
+
+若依框架，每个都写好了DockerFile
+
+![image-20230203114607936](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302031146018.png)
+
+请参考如下标准：
+
+```
+FROM openjdk:8-jdk
+LABEL maintainer=jiangbaixiong
+
+
+#docker run -e PARAMS="--server.port 9090"
+ENV PARAMS="--server.port=8080 --spring.profiles.active=prod --spring.cloud.nacos.discovery.server-addr=his-nacos.his:8848 --spring.cloud.nacos.config.server-addr=his-nacos.his:8848 --spring.cloud.nacos.config.namespace=prod --spring.cloud.nacos.config.file-extension=yml"
+RUN /bin/cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo 'Asia/Shanghai' >/etc/timezone
+
+COPY target/*.jar /app.jar
+EXPOSE 8080
+
+#
+ENTRYPOINT ["/bin/sh","-c","java -Dfile.encoding=utf8 -Djava.security.egd=file:/dev/./urandom -jar app.jar ${PARAMS}"]
+```
+
+规则：
+
+1、容器默认以8080端口启动(无论原文件配置怎么写，都默认8080)
+
+2、时间为CST
+
+3、环境变量 PARAMS 可以动态指定配置文件中任意的值
+
+4、nacos集群内地址为 ` his-nacos.his:8848 `
+
+5、微服务默认启动加载 nacos中  ` 服务名-激活的环境.yml ` 文件，所以线上的配置可以全部写在nacos中。
+
+
+
+#### 6.3.2 生产环境和开发环境分离
+
+应用上云，会自动激活生产环境，会触发去nacos找ruoyi-auth-prod.yaml
+
+要去nacos创建一个命名空间
+
+![image-20230203120132756](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302031201834.png)
+
+![image-20230203120259608](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302031202662.png)
+
+克隆配置到生产环境
+
+![image-20230203124823714](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302031248816.png)
+
+![image-20230203124911742](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302031249803.png)
+
+问题：
+
+```
+nacos克隆命名空间检测到冲突的配置项：DEFAULT_GROUP/application-prod.yml
+```
+
+解决办法：
+
+如果安装的nacos2.0.3 .必须使用ry_config_20210730.sql，因为数据库表结构变了。否则无法克隆
+
+克隆成功
+
+![image-20230203143311482](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302031433601.png)
+
+准备Dockerfile文件
+
+![image-20230203173936787](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302031739905.png)
+
+#### 6.3.3 准备微服务文件
+
+![image-20230203205720677](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302032057803.png)
+
+每个文件夹里有target 里面是jar包
+
+![image-20230203205744036](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302032057092.png)
+
+一起传到服务器上
+
+![image-20230203205932492](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302032059549.png)
+
+#### 6.3.4 制作本地镜像
+
+![image-20230203210807015](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302032108075.png)
+
+```
+docker build -t ruoyi-auth:v1.0 -f Dockerfile .
+```
+
+![image-20230203211242592](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302032112665.png)
+
+依次执行其他模块
+
+```
+docker build -t ruoyi-auth:v1.0 -f Dockerfile .
+
+docker build -t ruoyi-file:v1.0 -f Dockerfile .
+docker build -t ruoyi-gateway:v1.0 -f Dockerfile .
+docker build -t ruoyi-job:v1.0 -f Dockerfile .
+docker build -t ruoyi-system:v1.0 -f Dockerfile .
+docker build -t ruoyi-visual-monitor:v1.0 -f Dockerfile .
+```
+
+查看结果
+
+```
+docker images |grep ruoyi
+```
+
+![image-20230203211824741](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302032118800.png)
+
+接下来要推送到镜像仓库
+
+
+
+### 6.4 推送镜像
+
+流程如图
+
+![image-20230203163515905](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302031635044.png)
+
+![image-20230203175040813](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302031750876.png)
+
+#### 6.4.1 开通镜像空间
+
+开通阿里云“容器镜像服务（个人版）
+
+![image-20230203182931052](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302031829233.png)
+
+选择个人实例
+
+![image-20230203183010470](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302031830525.png)
+
+设置个人密码。
+
+ 创建命名空间，并设置为公开
+
+![image-20230203183402523](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302031834573.png)
+
+![image-20230203183511525](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302031835587.png)
+
+```
+ sudo docker login --username=jiangteddy2001@hotmail.com registry.cn-hangzhou.aliyuncs.com
+ sudo docker login --username=【阿里云账号】 registry.cn-hangzhou.aliyuncs.com
+```
+
+#### 6.4.2 推送镜像到阿里云
+
+登录后，输入密码。
+
+
+
+```
+$ docker login --username=forsum**** registry.cn-hangzhou.aliyuncs.com
+
+#把本地镜像，改名，成符合阿里云名字规范的镜像。
+$ docker tag [ImageId] registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/镜像名:[镜像版本号]
+## docker tag 461955fe1e57 registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-visual-monitor:v1
+
+$ docker push registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/镜像名:[镜像版本号]
+## docker push registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-visual-monitor:v1
+```
+
+例子
+
+```
+[root@k8smaster ~]# docker tag 3c5073a92f10 registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-visual-monitor:v1.0
+[root@k8smaster ~]# docker push registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-visual-monitor:v1
+
+
+
+```
+
+![image-20230203214732330](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302032147396.png)
+
+检查（注意选择华东-杭州）
+
+![image-20230203215258536](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302032152614.png)
+
+```
+[root@k8smaster ~]# docker tag 9630806dd6ff  registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-system:v1.0
+[root@k8smaster ~]# docker push registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-system:v1.0
+
+docker tag 05f288b6c638  registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-job:v1.0
+docker push registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-job:v1.0
+
+docker tag 1e95d916cfd0  registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-gateway:v1.0
+docker push registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-gateway:v1.0
+
+docker tag 8fb94061a516  registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-file:v1.0
+docker push registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-file:v1.0
+
+docker tag 82c47f0a56c8  registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-auth:v1.0
+docker push registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-auth:v1.0
+```
+
+![image-20230203220439170](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302032204246.png)
+
+
+
+所有镜像地址
+
+```
+docker pull registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-auth:v1.0
+
+docker pull registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-file:v1.0
+docker pull registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-gateway:v1.0
+docker pull registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-job:v1.0
+docker pull registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-system:v1.0
+docker pull registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-visual-monitor:v1.0
+docker pull registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-ui:v1.0
+```
 
 
 
 
 
-### 6.2 迁移数据库
+### 6.5 微服务上云
+
+- 应用一启动会获取到 "应用名-激活的环境标识.yml"
+- 每次部署应用的时候，需要提前修改nacos线上配置，确认好每个中间件的连接地址是否正确
+
+#### 6.5.1 修改nacos配置文件
+
+![image-20230204175303484](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302041753575.png)
+
+改成单机服务
+
+![image-20230204175530593](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302041755679.png)
+
+修改后只启动一份服务
+
+![image-20230204180051452](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302041800533.png)
+
+![image-20230204180144204](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302041801295.png)
+
+修改配置文件
+
+![image-20230204181441605](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302041814701.png)
+
+部署规则，域名记录
+
+```
+
+Redis: redis-tdknnc.his
+Mysql: his-mysql.his
+
+```
+
+
+
+#### 6.5.2 部署微服务
+
+选择无状态服务
+
+
+
+![image-20230204154314489](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302041543708.png)
+
+![image-20230204154738278](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302041547380.png)
+
+![image-20230204154750269](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302041547343.png)
+
+开始创建。创建完毕后查看日志
+
+![image-20230204154957710](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302041549788.png)
+
+确保没有异常
+
+![image-20230204155026507](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302041550625.png)
+
+异常：
+
+![image-20230204155327423](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302041553559.png)
+
+```
+Caused by: com.alibaba.nacos.api.exception.NacosException: Nacos cluster is running with 1.X mode, can't accept gRPC request temporarily. Please check the server status or close Double write to force open 2.0 mode. Detail https://nacos.io/en-us/docs/2.0.0-upgrading.html.
+```
+
+原因：
+
+Nacos2.0版本因为考虑1.x版本的升级用户。所以2.0版本启动时必须先以1.X模式启动。**当集群中所有nacos client节点都达到可升级至2.0的状态时，才自动升级成2.0模式。** 
+
+
+
+解决办法：1、使用单节点模式 2、使用nacos2.1.0以上版本
+
+#### 6.5.3 网关部署问题
+
+```
+Caused by: com.alibaba.nacos.shaded.io.grpc.netty.shaded.io.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:9848
+
+Caused by: java.net.ConnectException: Connection refused
+
+at sun.nio.ch.SocketChannelImpl.checkConnect(Native Method)
+
+at sun.nio.ch.SocketChannelImpl.finishConnect(SocketChannelImpl.java:716)
+
+at com.alibaba.nacos.shaded.io.grpc.netty.shaded.io.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:327)
+
+at com.alibaba.nacos.shaded.io.grpc.netty.shaded.io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:336)
+
+at com.alibaba.nacos.shaded.io.grpc.netty.shaded.io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:685)
+
+at com.alibaba.nacos.shaded.io.grpc.netty.shaded.io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:632)
+
+at com.alibaba.nacos.shaded.io.grpc.netty.shaded.io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:549)
+
+at com.alibaba.nacos.shaded.io.grpc.netty.shaded.io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:511)
+```
+
+解决办法：
+
+![image-20230204201019870](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042010075.png)
+
+复制配置
+
+```
+sentinel:
+      # 取消控制台懒加载
+      eager: true
+      transport:
+        # 控制台地址
+        dashboard: 127.0.0.1:8718
+      # nacos配置持久化
+      datasource:
+        ds1:
+          nacos:
+            server-addr: 127.0.0.1:8848
+            dataId: sentinel-ruoyi-gateway
+            groupId: DEFAULT_GROUP
+            data-type: json
+            rule-type: gw-flow
+```
+
+![image-20230204201728241](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042017328.png)
+
+![image-20230204201909666](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042019742.png)
+
+关掉原来的副本，再重新开启一个副本
+
+![image-20230204203339704](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042033797.png)
+
+至此全部微服务全部部署上线
+
+
+
+### 6.6 前端上云及测试
+
+#### 6.6.1 本地打包UI
+
+打包生产环境的包
+
+![image-20230204204722969](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042047022.png)
+
+```
+npm run build:prod
+```
+
+先改一下配置
+
+![image-20230204205822885](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042058975.png)
+
+![image-20230204205903946](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042059999.png)
+
+执行打包
+
+![image-20230204210050404](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042100464.png)
+
+打包完成
+
+![image-20230204210735476](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042107536.png)
+
+![image-20230204210654965](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042106034.png)
+
+
+
+#### 6.6.2 生成前端镜像
+
+先查看若依的dockerfile
+
+![image-20230204211033416](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042110492.png)
+
+把nginx文件夹复制到桌面
+
+![image-20230204211707364](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042117480.png)
+
+修改一下配置文件
+
+![image-20230204211917308](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042119392.png)
+
+![image-20230204211929035](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042119087.png)
+
+![image-20230204211959421](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042119484.png)
+
+修改2个配置改成
+
+```
+ruoyi-gateway.his
+```
+
+![image-20230204212209993](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042122055.png)
+
+压缩nginx文件夹nginx.zip，上传到服务器
+
+![image-20230204212402331](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042124405.png)
+
+```
+unzip nginx.zip
+```
+
+
+
+生成本地镜像
+
+```
+# 本地打包镜像
+docker build -t registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-ui:v1.0 -f dockerfile .
+
+# 推送
+docker push registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-ui:v1.0
+
+
+docker pull registry.cn-hangzhou.aliyuncs.com/jbx_ruoyi/ruoyi-ui:v1.0
+```
+
+![image-20230204213541560](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042135631.png)
 
 
 
 
 
-### 6.3 部署nacus
+#### 6.6.3 部署上云
+
+![image-20230204214038578](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042141571.png)
 
 
 
+![image-20230204214107412](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042141484.png)
 
+![image-20230204214306501](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042143576.png)
 
+访问地址
 
+```
+http://192.168.133.110:31363/
+```
 
-### 6.4 高可用部署
+![image-20230204214318394](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302042143869.png)
 
+### 6.7  Nacos存活探针
 
+K8S健康检查机制，来判断nacos是否正常启动
+
+编辑nacos的配置模板
+
+![image-20230205223325391](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302052233513.png)
+
+![image-20230205182206971](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302051822150.png)
+
+添加存活检查
+
+![image-20230205182440188](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302051824262.png)
+
+![image-20230205223357625](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302052233715.png)
 
 
 
