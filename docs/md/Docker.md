@@ -1,5 +1,9 @@
 # Docker
 
+硬件环境
+
+![](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302061759925.png)
+
 ## 1 Docker用途
 
 1.1统一标准
@@ -895,7 +899,359 @@ docker service logs
 
 docker service scale 
 
+### 7.6 Swarm实战
 
+109作为主节点，105作为子节点
+
+#### 7.6.1 初始化主节点
+
+docker info 这个命令可以查看我们的docker engine 有没有激活swarm模式
+
+```
+docker info
+```
+
+![image-20230206192559303](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302061925356.png)
+
+inactive表示关闭状态， active表示开户状态
+
+关掉防火墙
+
+```
+systemctl stop firewalld
+systemctl disable firewalld
+systemctl status firewalld
+```
+
+进入109初始化
+
+![image-20230206194420015](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302061944099.png)
+
+```
+# 查看docker swarm命令
+docker swarm --help
+
+# 域名
+hostnamectl set-hostname dockermaster
+
+# 创建docker swarm 集群
+docker swarm init --advertise-addr 192.168.133.109
+# init后会返回一个token，这个token是其他节点加入集群所需要的token
+
+# 关闭docker swarm 集群
+docker swarm leave [--force]
+# 单节点关闭会有个报错，这个时候就需要用到 --force进行强制离开
+
+# 查看docker swarm 集群的节点信息
+docker node ls
+
+```
+
+
+
+![image-20230206194555935](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302061945983.png)
+
+```
+Swarm initialized: current node (0qvm9q6ofepx85i46cy80x20r) is now a manager.
+
+To add a worker to this swarm, run the following command:
+
+    docker swarm join --token SWMTKN-1-2zh0y3mx7ahgm9s9oi8msf9qcy2qhz7av85mp54b0b2r35jcrg-4miuly8hbl2tw8kyd7qtttjgi 192.168.133.109:2377
+
+To add a manager to this swarm, run 'docker swarm join-token manager' and follow the instructions.
+
+```
+
+docker swarm join-token manage 表示加入一个管理节点
+
+docker swarm join 表示加入一个工作节点
+
+
+
+
+
+#### 7.6.2 工作节点加入主节点
+
+进入105服务器
+
+```
+# 域名
+hostnamectl set-hostname worker1
+
+# 加入集群
+docker swarm join --token SWMTKN-1-2zh0y3mx7ahgm9s9oi8msf9qcy2qhz7av85mp54b0b2r35jcrg-4miuly8hbl2tw8kyd7qtttjgi 192.168.133.109:2377
+
+```
+
+加入成功
+
+![image-20230206200046228](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302062000277.png)
+
+查询节点
+
+```
+ docker node ls
+```
+
+
+
+![image-20230206200007307](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302062000360.png)
+
+
+
+#### 7.6.3 集群部署服务
+
+```
+ docker service --help
+```
+
+![image-20230206200654042](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302062006095.png)
+
+1、创建服务
+
+```
+[root@localhost ~]# docker service create --name demo busybox /bin/sh -c "while true; do sleep 3600; done "
+53oj98fhb98sruz8bn3us08e7
+overall progress: 1 out of 1 tasks 
+1/1: running   [==================================================>] 
+verify: Service converged
+```
+
+可以查看是否创建成功：
+
+```
+[root@localhost ~]# docker service ls
+ID             NAME      MODE         REPLICAS   IMAGE            PORTS
+53oj98fhb98s   demo      replicated   1/1        busybox:latest
+```
+
+可以具体看这个service的内容：
+
+```
+[root@localhost ~]# docker service ps demo
+ID             NAME      IMAGE            NODE           DESIRED STATE   CURRENT STATE                ERROR     PORTS
+funaztjr97gu   demo.1    busybox:latest   dockermaster   Running         Running about a minute ago
+```
+
+
+
+2、扩容缩容
+
+水平扩容到5
+
+```
+[root@localhost ~]# docker service scale demo=5
+demo scaled to 5
+overall progress: 5 out of 5 tasks 
+1/5: running   [==================================================>] 
+2/5: running   [==================================================>] 
+3/5: running   [==================================================>] 
+4/5: running   [==================================================>] 
+5/5: running   [==================================================>] 
+verify: Service converge
+```
+
+查看服务是否有5个
+
+```
+[root@localhost ~]# docker service ls
+ID             NAME      MODE         REPLICAS   IMAGE            PORTS
+53oj98fhb98s   demo      replicated   5/5        busybox:latest 
+```
+
+再看看具体的容器数量：
+
+```
+[root@localhost ~]# docker service ps demo
+ID             NAME      IMAGE            NODE           DESIRED STATE   CURRENT STATE           ERROR     PORTS
+funaztjr97gu   demo.1    busybox:latest   dockermaster   Running         Running 4 minutes ago             
+xtu9j9jh35d3   demo.2    busybox:latest   worker1        Running         Running 2 minutes ago             
+je3wu31m1dxt   demo.3    busybox:latest   dockermaster   Running         Running 3 minutes ago             
+tkfo2ycyojh5   demo.4    busybox:latest   worker1        Running         Running 3 minutes ago             
+9q0jnrk2pr0q   demo.5    busybox:latest   worker1        Running         Running 2 minutes ago 
+```
+
+可以看到5个容器在不同的节点上，其中有2个容器在manager节点，有3个在worker节点上
+
+每一个节点都可以自己查看自己目前运行的容器，比如worker-105节点查看自己运行容器的数量
+
+```
+docker ps
+```
+
+![image-20230206201514040](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302062015101.png)
+
+节点带有自动修复功能。删除一个服务后，服务会自动修复。
+
+
+
+3、删除服务
+
+```
+docker service rm demo
+```
+
+
+
+#### 7.6.4 Raft协议
+
+Raft协议： 保证大多数节点存活才可以用。 只要>1 ，集群至少大于3台！
+
+
+
+#### 7.6.5 锁机制
+
+启用锁
+
+```
+docker swarm update --autolock=true
+```
+
+命令会输入一个安全解锁码，请确保将解锁码妥善保管在安全的地方！
+
+尝试重启某一个管理节点，会发现管理节点仍然未被允许重新接入集群
+
+执行docker swarm unlock命令来为重启的管理节点解锁Swarm。该命令需要在重启的节点上执行，同时需要提供解锁码。
+
+```
+docker swarm unlock
+```
+
+
+
+#### 7.6.6 网络
+
+创建swarm集群后，系统会默认添加两个网络一个是overlay网络，一个是bridge网络
+
+第一： 东西向流量， 也就是不同的swarm节点上的容器之间如何通信，swarm 通过 overlay网络来解决
+
+第二： 南北向流量， 也就是swarm集群里的容器如何对外访问， 比如互联网这个是 linux bridge + iptables NAT来解决
+
+创建 overlay 网络
+
+```
+docker network create -d overlay mynet
+```
+
+
+
+#### 7.6.7 滚动升级
+
+1、登录到manager节点的主机
+
+2、部署redis service (配置更新延迟参数为：10s)
+
+```
+docker service create \
+  --replicas 3 \
+  --name redis \
+  --update-delay 10s \
+  redis:3.0.6
+```
+
+配置说明：
+
+- 可以在service部署时，配置滚动更新策略
+- --update-delay设置每个task之间的更新延迟 （第一个task正确运行后，隔多久，第二个task开始更新），单位可以设置s,m,h [例如：10m30s表示10分钟30秒的延迟]
+- 默认情况下，调度器一次更新一个task.可以使用--update-parallelism参数来设置，调度器同时更新task的数量。
+- 当进行滚动升级时，当一个task返回RUNNING状态时，调度器调度下一个task,以这样的方式，直到所有的task都更新完成。
+- 当更新的过程中，任何的task返回FAILED，调度器就会终止更新。可以通过--update-failure-action这个参数来控制更新失败时的行为。
+
+
+
+查看结果
+
+```
+ docker service ls
+ 
+ docker service ps redis
+
+```
+
+![image-20230206203710660](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302062037724.png)
+
+
+
+查看serivce的详细信息
+
+```
+docker service inspect --pretty redis
+```
+
+```
+[root@localhost ~]# docker service inspect --pretty redis
+
+ID:		87iy7kx0u4etdd00dvacdb8a9
+Name:		redis
+Service Mode:	Replicated
+ Replicas:	3
+Placement:
+UpdateConfig:
+ Parallelism:	1
+ Delay:		10s
+ On failure:	pause
+ Monitoring Period: 5s
+ Max failure ratio: 0
+ Update order:      stop-first
+RollbackConfig:
+ Parallelism:	1
+ On failure:	pause
+ Monitoring Period: 5s
+ Max failure ratio: 0
+ Rollback order:    stop-first
+ContainerSpec:
+ Image:		redis:3.0.6@sha256:6a692a76c2081888b589e26e6ec835743119fe453d67ecf03df7de5b73d69842
+ Init:		false
+Resources:
+Endpoint Mode:	vip
+
+```
+
+重点关注更新配置UpdateConfig
+
+```
+UpdateConfig:
+
+Parallelism: 1 #并行更新实例个数
+
+Delay: 10s #task更新延迟
+
+On failure: pause #更新失败时的行为
+
+Monitoring Period: 5s #监控周期
+
+Max failure ratio: 0
+
+Update order: stop-first #更新顺序，先停止task，再更新task
+```
+
+
+
+使用redis 3.0.7版本镜像更新redis服务
+
+```
+docker service update --image redis:3.0.7 redis
+```
+
+步骤：
+
+1. 停止第一个task
+2. 更新停止的task
+3. 启动已经更新好的task
+4. 如果更新的这个task成功，返回RUNNING，然后，停下来，等一个--update-delay参数指定的延时周期，然后更新下一个task.
+5. 如果在更新的过程中，任何时间，只要返回FAILED状态，暂停更新。
+
+注意！如果**更新失败**了，从哪里可以看到失败的原因？
+
+ 只需要 docker service inspect 即可
+
+查看升级过程
+
+```
+docker service ps redis
+```
+
+![image-20230206204518509](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302062045583.png)
 
 ## 9 Docker  Stack
 
@@ -924,6 +1280,10 @@ docker stack rm
 docker-compose、docker stack工具命令均可以使用version3 编写的docker-compose.yml 文件上，版本3以前的docker-compose.yml 文件可继续使用docker-compose工具，若是你仅须要一个能操做多个容器的工具，依旧可使用docker-compose工具。
 
 docker stack几乎能作docker-compose全部的事情 （生产部署docker stack表现还更好），若是打算使用docker swarm集群编排，可迁移到docker stack。
+
+
+
+
 
 
 
