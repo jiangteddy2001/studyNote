@@ -1,3 +1,5 @@
+
+
 # Docker
 
 硬件环境
@@ -849,16 +851,16 @@ Swarm在调度(scheduler)节点（leader节点）运行容器的时候，会根�
 
 Binpack策略最大化的避免容器碎片化，就是说binpack策略尽可能的把还未使用的节点留给需要更大空间的容器运行，尽可能的把容器运行在一个节点上面。 
 
-
 ### 7.5常用命令
 
 docker swarm
 
-#初始化集群
+```
+# 初始化集群
 docker swarm init
-#查看工作节点的 token
+# 查看工作节点的 token
 docker swarm join-token worker
-#查看管理节点的 token
+# 查看管理节点的 token
 docker swarm join-token manager
 #加入集群中
 docker swarm join               
@@ -891,13 +893,14 @@ docker service scale 服务名称|服务ID=n       #设置某个服务个数，�
 docker service scale nginx=3               #修改服务实例数量为3
 docker service update 服务名称|服务ID        #更新某个服务
 
-服务日志排查
-
+# 服务日志排查
 docker service logs
 
-服务扩容
-
+# 服务扩容
 docker service scale 
+```
+
+
 
 ### 7.6 Swarm实战
 
@@ -1257,14 +1260,22 @@ docker service ps redis
 
 ### 9.1 概念
 
-Docker Stack 则适用于大规模场景和生产环境，Stack 能够在单个声明文件中定义复杂的多服务应用。Stack 还提供了简单的方式来部署应用并管理其完整的生命周期：初始化部署 -> 健康检查 -> 扩容 -> 更新 -> 回滚，以及其他功能！
+Docker Stack 则适用于大规模场景和生产环境，Stack 能够在单个声明文件中定义复杂的多服务应用。
 
-从体系结构上来讲，Stack 位于 Docker 应用层级的最顶端。Stack 基于服务进行构建，而服务又基于容器结构如下图：
+Docker Stack 部署应用的生命周期：初始化部署 > 健康检查 > 扩容 > 更新 > 回滚。
+
+使用单一声明式文件即可完成部署，即只需要docker-stack.yml文件，使用docker stack deploy命令即可完成部署。
+
+stack 文件其实就是 Docker compose 文件，唯一的要求就是 version 需要为 3.0 或者更高的值。
+
+Stack 完全集成到了 Docker 中，不像 compose 还需要单独安装。
+
 
 ![image-20221211100815216](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212111008278.png)
 
-### 9.2常用命令
+### 9.2 常用命令
 
+```
 //用于根据 Stack 文件（通常是 docker-compose.yml）部署和更新 Stack 服务的命令
 docker stsack deploy -c docker-compose.yml test
 
@@ -1276,14 +1287,64 @@ docker stack ps
 
 //命令用于从 Swarm 集群中移除 Stack。移除操作执行前并不会进行二次确认
 docker stack rm
+```
 
-docker-compose、docker stack工具命令均可以使用version3 编写的docker-compose.yml 文件上，版本3以前的docker-compose.yml 文件可继续使用docker-compose工具，若是你仅须要一个能操做多个容器的工具，依旧可使用docker-compose工具。
+docker-compose、docker stack工具命令均可以使用version3 编写的docker-compose.yml 文件上，
 
-docker stack几乎能作docker-compose全部的事情 （生产部署docker stack表现还更好），若是打算使用docker swarm集群编排，可迁移到docker stack。
+版本3以前的docker-compose.yml 文件可继续使用docker-compose工具，
 
+若是你仅须要一个能操做多个容器的工具，依旧可使用docker-compose工具。
 
+Docker Stack 与 Docker Compose的区别
+docker stack 是swarm mode的一部分, 即使是单机使用, 也需要一个 swarm 节点
 
+docker stack 强化了service的概念 
 
+### 9.3 编排部署
+
+```
+# 单机
+docker-compose up -d wordpress.yaml
+# 集群
+docker stack deploy wordpress.yaml
+
+```
+
+```
+# docker-compose 文件
+version: '3.4'
+services:
+    mongo:
+        image: mongo
+        restart: always
+        networks:
+            - mongo_network
+        deploy:
+            restart_policy:
+                condition: on-failure
+            replicas: 2
+    mongo-express:
+        image: mongo-express
+        restart: always
+        networks:
+            - mongo_network
+        ports:
+            - target: 8081
+              published: 80
+              protocol: tcp
+              mode: ingress
+        environment:
+            ME_CONFIG_MONGODB_SERVER: mongo
+            ME_CONFIG_MONGODB_PORT: 27017
+        deploy:
+            restart_policy:
+                condition: on-failure
+            replicas: 1
+networks:
+    mongo_network:
+        external: true
+
+```
 
 
 
@@ -1473,65 +1534,291 @@ vim docker-compose.yml
 
 ```
 version: '3.1'
-
+ 
+ 
+ 
 volumes:
-grafana_data: {}
-
+ 
+  grafana_data: {}
+ 
+ 
+ 
 services:
-influxdb:
-image: tutum/influxdb:0.9
-restart: always
-environment:
-- PRE_CREATE_DB=cadvisor
-ports:
-- "8083:8083"
-- "8086:8086"
-volumes:
-- ./data/influxdb:/data
-
-cadvisor:
-image: google/cadvisor
-links:
-- influxdb:influxsrv
-command: -storage_driver=influxdb -storage_driver_db=cadvisor -storage_driver_host=influxsrv:8086
-restart: always
-ports:
-- "8080:8080"
-volumes:
-- /:/rootfs:ro
-- /var/run:/var/run:rw
-- /sys:/sys:ro
-- /var/lib/docker/:/var/lib/docker:ro
-
-grafana:
-user: "104"
-image: grafana/grafana
-user: "104"
-restart: always
-links:
-- influxdb:influxsrv
-ports:
-- "3000:3000"
-volumes:
-- grafana_data:/var/lib/grafana
-environment:
-- HTTP_USER=admin
-- HTTP_PASS=admin
-- INFLUXDB_HOST=influxsrv
-- INFLUXDB_PORT=8086
-- INFLUXDB_NAME=cadvisor
-- INFLUXDB_USER=root
-- INFLUXDB_PASS=root
+ 
+ influxdb:
+ 
+  image: tutum/influxdb:0.9
+ 
+  restart: always
+ 
+  environment:
+ 
+    - PRE_CREATE_DB=cadvisor
+ 
+  ports:
+ 
+    - "8083:8083"
+ 
+    - "8086:8086"
+ 
+  volumes:
+ 
+    - ./data/influxdb:/data
+ 
+ 
+ 
+ cadvisor:
+ 
+  image: google/cadvisor
+ 
+  links:
+ 
+    - influxdb:influxsrv
+ 
+  command: -storage_driver=influxdb -storage_driver_db=cadvisor -storage_driver_host=influxsrv:8086
+ 
+  restart: always
+ 
+  ports:
+ 
+    - "8080:8080"
+ 
+  volumes:
+ 
+    - /:/rootfs:ro
+ 
+    - /var/run:/var/run:rw
+ 
+    - /sys:/sys:ro
+ 
+    - /var/lib/docker/:/var/lib/docker:ro
+ 
+ 
+ 
+ grafana:
+ 
+  user: "104"
+ 
+  image: grafana/grafana
+ 
+  user: "104"
+ 
+  restart: always
+ 
+  links:
+ 
+    - influxdb:influxsrv
+ 
+  ports:
+ 
+    - "3000:3000"
+ 
+  volumes:
+ 
+    - grafana_data:/var/lib/grafana
+ 
+  environment:
+ 
+    - HTTP_USER=admin
+ 
+    - HTTP_PASS=admin
+ 
+    - INFLUXDB_HOST=influxsrv
+ 
+    - INFLUXDB_PORT=8086
+ 
+    - INFLUXDB_NAME=cadvisor
+ 
+    - INFLUXDB_USER=root
+ 
+    - INFLUXDB_PASS=root
 ```
 
 ```
+
 docker-compose config -q #检查配置是否有问题
-docker-compose up -d # -d 后台
-docker ps # 查看是否成功启动
 
+```
+
+没有任何的报错提示，即正确
+
+![image-20230207142502029](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071425148.png)
+
+分析一下上面配置文件
+
+```
+version: '3.1'				#必须是3.0以上才能运行docker-compose
+ 
+volumes:
+  grafana_data: {}			#实现了grafana数据的挂载
+ 
+services:					#表示我们要启动的服务，即要docker run的内容，多个实例服务
+ influxdb:					#A
+  image: tutum/influxdb:0.9
+  restart: always
+  environment:
+    - PRE_CREATE_DB=cadvisor	#预先创建一个数据库，创建一个数据库一样
+  ports:
+    - "8083:8083"		#对外是8083
+    - "8086:8086"		#内部即8086
+  volumes:
+    - ./data/influxdb:/data	#B 从A-B即influxdb服务，拉取的镜像，安装的环境，暴露的端口，下面的cadvisor，grafana都是一样的
+ 
+ cadvisor:
+  image: google/cadvisor
+  links:
+    - influxdb:influxsrv
+  command: -storage_driver=influxdb -storage_driver_db=cadvisor -storage_driver_host=influxsrv:8086 #这就是相当于mysql选择的那个驱动
+  restart: always
+  ports:
+    - "8080:8080"
+  volumes:
+    - /:/rootfs:ro	
+    - /var/run:/var/run:rw
+    - /sys:/sys:ro
+    - /var/lib/docker/:/var/lib/docker:ro		#四个容器数据卷
+ 
+ grafana:
+  user: "104"
+  image: grafana/grafana
+  user: "104"
+  restart: always							#因为有restart，所以如影随形，随着docker启动，就启动
+  links:
+    - influxdb:influxsrv
+  ports:
+    - "3000:3000"
+  volumes:
+    - grafana_data:/var/lib/grafana
+  environment:
+    - HTTP_USER=admin
+    - HTTP_PASS=admin
+    - INFLUXDB_HOST=influxsrv
+    - INFLUXDB_PORT=8086
+    - INFLUXDB_NAME=cadvisor
+    - INFLUXDB_USER=root
+    - INFLUXDB_PASS=root
+    #千言万语一句话，全部由docker-compose一键部署
 ```
 
 
 
-### 13.3 配置
+### 13.3 启动
 
+```
+docker-compose up		#前台启动，为了看一下过程
+docker-compose up -d 	#后台启动，推荐使用
+```
+
+
+
+查看启动的服务
+
+```
+docker ps
+```
+
+![image-20230207151711036](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071517118.png)
+
+
+
+### 13.4 测试服务
+
+#### 13.4.1 测试`CAdvisor`**监控服务**
+
+```
+http://192.168.133.109:8080/
+```
+
+往下拉动，有很多图形化监控。
+
+cadvisor也有基础的图形展现功能，这里主要用它来作数据采集。
+
+![image-20230207151907920](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071519013.png)
+
+![image-20230207151924192](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071519291.png)
+
+
+
+
+
+#### 13.4.2 测试`influxdb`存储服务
+
+```
+http://192.168.133.109:8083/
+```
+
+![image-20230207152110156](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071521233.png)
+
+
+
+
+
+#### 13.4.3 测试`Grafana`**展览服务**
+
+```
+http://192.168.133.109:3000/
+```
+
+默认账号密码：admin / admin
+
+![image-20230207152145358](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071521637.png)
+
+配置数据源
+
+![image-20230207153340095](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071533167.png)
+
+
+
+选择influxDB 
+
+![image-20230207153544090](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071535145.png)
+
+配置InfluxDB
+
+![image-20230207154008668](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071540737.png)
+
+配置数据库账户
+
+![image-20230207154121840](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071541905.png)
+
+![image-20230207154154442](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071541513.png)
+
+点击save & test
+
+![image-20230207154225171](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071542246.png)
+
+配置面板
+
+![image-20230207154309498](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071543559.png)
+
+![image-20230207154419473](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071544533.png)
+
+![image-20230207154433130](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071544197.png)
+
+![image-20230207154553700](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071545784.png)
+
+写上名字，然后点击保存 
+
+![image-20230207154640479](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071546536.png)
+
+此时还没有数据
+
+![image-20230207154659232](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071546299.png)
+
+点击edit
+
+![image-20230207154727715](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071547784.png)
+
+选择CPU监控，然后根据容器名称选择一个容器，写上别名保存
+
+![image-20230207155041424](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071550490.png)
+
+![image-20230207155124885](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071551969.png)
+
+配置完成后，我们就可以看到展示的数据 
+
+![image-20230207155157369](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071551493.png)
+
+首页效果
+
+![image-20230207155228641](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302071552741.png)
