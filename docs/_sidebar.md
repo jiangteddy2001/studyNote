@@ -17,12 +17,16 @@
 * 数据库
     * [Mysql](md/Mysql.md)
 	* [MongoDB](md/MongoDB.md)
+	* [PostgreSQL](md/PostgreSQL.md)
 * 中间件
     * [Mycat](md/Mycat.md)
 	* [Canal](md/Canal.md)
+	* [ElasticSearch](md/ElasticSearch.md)
 * 消息队列
     * [RocketMq](md/RocketMq.md)
 	* [Rabbitmq](md/Rabbitmq.md)
+	* [Kafka](md/Kafka.md)
+	* [Pulsar](md/Pulsar.md)
 * MQTT
     * [Emqx](md/EMQX.md)
 * Nginx

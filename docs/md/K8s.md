@@ -1,4 +1,4 @@
-K8s
+# K8s
 
 ## 1、基本概念
 
@@ -38,13 +38,13 @@ Kubernetes **Cluster** **=** N **Master** Node **+** N **Worker** Node：N主节
 - - **内网互信**
 - 禁用交换分区。为了保证 kubelet 正常工作，你 **必须** 禁用交换分区。
 
-
+![image-20230131154234611](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301311542759.png)
 
 
 
 ### 3.1 基础环境
 
-安装docker 20.10.7
+3台机器都要安装docker 20.10.7
 
 ```
 sudo yum remove docker*
@@ -2260,10 +2260,6 @@ kubectl get secret jiangteddy-test-secret -oyaml
  重新修改之前的yaml文件
 
 ```
-
-```
-
-```
 apiVersion: v1
 kind: Pod
 metadata:
@@ -2448,15 +2444,43 @@ storage: "s3"
 
 ```
 
+6.4 常用命令
+
+| 命令       | 描述                                                         |
+| ---------- | ------------------------------------------------------------ |
+| dependency | 管理 chart 依赖                                              |
+| get        | 下载一个 release。可用子命令：all、hooks、manifest、notes、values |
+| history    | 获取 release 历史                                            |
+| install    | 安装一个 chart                                               |
+| list       | 列出 release                                                 |
+| package    | 将 chart 目录打包到 chart 存档文件中                         |
+| pull       | 从远程仓库中下载 chart 并解压到本地 # helm pull stable/mysql -- untar |
+| repo       | 添加，列出，移除，更新和索引 chart 仓库。可用子命令：add、index、 list、remove、update |
+| rollback   | 从之前版本回滚                                               |
+| search     | 根据关键字搜索 chart。可用子命令：hub、repo                  |
+| show       | 查看 chart 详细信息。可用子命令：all、chart、readme、values  |
+| status     | 显示已命名版本的状态                                         |
+| template   | 本地呈现模板                                                 |
+| uninstall  | 卸载一个 release                                             |
+| upgrade    | 更新一个 release                                             |
+| version    | 查看 helm 客户端版本                                         |
 
 
-### 
 
+7、K8S备注
 
+```
+yum install bash-completion -y
 
+source /usr/share/bash-completion/bash_completion
 
+source <(kubectl completion bash)
 
+```
 
+推荐2个自动生成yaml文件的网站
 
-## 
+#### http://k8syaml.com/
+
+#### http://www.kubebiz.com/ 
 

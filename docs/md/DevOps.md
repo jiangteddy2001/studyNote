@@ -831,6 +831,7 @@ chmod o+rw docker.sock
 
 ![image-20230107155550294](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301071555335.png)
 
+```
 version: '3.1'
 services:
   jenkins:
@@ -838,13 +839,17 @@ services:
     image: jenkins/jenkins:2.319.1-lts
     container_name: jenkins
     ports:
-      - 9001:8080
-            - 50001:50000
-        volumes:
-            - ./data:/var/jenkins_home/
-                  - /var/run/docker.sock:/var/run/docker.sock
-                  - /usr/bin/docker:/usr/bin/docker
-                        - /etc/docker/daemon.json:/etc/docker/daemon.json
+
+   - 9001:8080
+     50001:50000
+     volumes:
+        - ./data:/var/jenkins_home/
+          - /var/run/docker.sock:/var/run/docker.sock
+          - /usr/bin/docker:/usr/bin/docker
+               - /etc/docker/daemon.json:/etc/docker/daemon.json
+```
+
+
 
 ![image-20230107155902753](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301071559795.png)
 
@@ -1159,7 +1164,7 @@ pipeline {
 ```
 
 
-       
+​       
 
 ![image-20230108140455776](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202301081404838.png)
 
