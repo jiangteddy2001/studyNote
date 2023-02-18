@@ -21,6 +21,7 @@
 * 中间件
     * [Mycat](md/Mycat.md)
 	* [Canal](md/Canal.md)
+	* [ZooKeeper](md/ZooKeeper.md)
 	* [ElasticSearch](md/ElasticSearch.md)
 * 消息队列
     * [RocketMq](md/RocketMq.md)
