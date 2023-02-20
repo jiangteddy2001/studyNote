@@ -313,6 +313,23 @@ zk通过两种形式的持久化，在恢复时先恢复快照文件中的数据
 - 乐观锁删除
   delete -v dataVersion(节点的数据版本号) /xxx 【只有指定删除的数据版本 == 当前节点的数据版本号，才能够删除成功】，每对节点进行一次数据操作，节点的dataVersion就会+1。这样删除，以乐观锁的机制，可保证并发下数据操作的唯一性
 
+```
+[zk: localhost:2181(CONNECTED) 4] create /test2
+
+[zk: localhost:2181(CONNECTED) 7] set /test2 abc
+[zk: localhost:2181(CONNECTED) 8] get -s /test2
+
+# 数据版本号+1
+```
+
+![image-20230219151704362](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302191517521.png)
+
+乐观锁是验证，不是阻止
+
+![image-20230219152355964](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302191523025.png)
+
+
+
 
 ### 4.4 权限设置
 
@@ -331,37 +348,624 @@ create /test-node abcd auth:baixiong:123456:cdwra
 
 在另一个会话中，必须先使用账号密码，才能拥有操作节点的权限
 
+![image-20230219152812967](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302191528004.png)
+
+![image-20230219152852390](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302191528429.png)
+
 
 
 ## 5 Curator客户端的使用
 
+### 5.1 Curator介绍
 
+Curator是Netflix公司开源的一套zookeeper客户端框架，Curator是对zookeeper支持最好的客户端框架。Curator封装了大部分zookeeper的功能，比如leader选举、分布式锁等，减少了技术人员在使用zookeeper时的底层细节开发工作。
+在Java程序中使用zookeeper，可以引入Curator
+
+
+
+### 5.2 配置
+
+引入依赖
+
+```
+<!-- Curator -->
+<dependency>
+  <groupId>org.apache.curator</groupId>
+  <artifactId>curator-framework</artifactId>
+  <version>2.12.0</version>
+</dependency>
+<dependency>
+  <groupId>org.apache.curator</groupId>
+  <artifactId>curator-recipes</artifactId>
+  <version>2.12.0</version>
+</dependency>
+<!-- zookeeper -->
+<dependency>
+  <groupId>org.apache.zookeeper</groupId>
+  <artifactId>zookeeper</artifactId>
+  <version>3.7.0</version>
+</dependency>
+
+```
+
+配置文件
+
+```
+# 重试次数
+curator.retryCount=5
+# 临时节点的超时时间
+curator.elapsedTimeMs=5000
+# 连接地址 
+curator.connectionString=192.168.133.103:2181
+# session超时时间
+curator.sessionTimeoutMs=60000
+# 连接超时时间
+curator.connectionTimeoutMs=5000
+```
+
+
+
+```
+package com.jiang.zkclient.config;
+
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.retry.RetryNTimes;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+/**
+* @author 作者 jiangbaixiong
+* @version 创建时间：2023年2月20日 上午10:42:11
+* @DESCRIPTION :
+*/
+@Configuration
+public class CuratorConfig {
+	
+	@Autowired
+  WrapperZK wrapperZK;
+	
+	@Bean(initMethod="start")
+	public CuratorFramework curatorFramework() {
+		
+		return CuratorFrameworkFactory.newClient(
+				wrapperZK.getConnectionString(), 
+				wrapperZK.getSessionTimeoutMs(), 
+				wrapperZK.getConnectionTimeoutMs(), 
+				new RetryNTimes(wrapperZK.getRetryCount(), wrapperZK.getElapsedTimeMs()));
+	}
+
+}
+
+```
+
+```
+package com.jiang.zkclient.config;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+
+
+/**
+* @author 作者 jiangbaixiong
+* @version 创建时间：2023年2月20日 上午10:35:07
+* @DESCRIPTION :
+*/
+
+@Component
+@ConfigurationProperties(prefix="curator")
+public class WrapperZK {
+	
+	private int retryCount;
+	
+	private int elapsedTimeMs;
+	
+	private String connectionString;
+	
+	private int sessionTimeoutMs;
+	
+	private int connectionTimeoutMs;
+
+	public int getRetryCount() {
+		return retryCount;
+	}
+
+	public void setRetryCount(int retryCount) {
+		this.retryCount = retryCount;
+	}
+
+	public int getElapsedTimeMs() {
+		return elapsedTimeMs;
+	}
+
+	public void setElapsedTimeMs(int elapsedTimeMs) {
+		this.elapsedTimeMs = elapsedTimeMs;
+	}
+
+	
+
+	public String getConnectionString() {
+		return connectionString;
+	}
+
+	public void setConnectionString(String connectionString) {
+		this.connectionString = connectionString;
+	}
+
+	public int getSessionTimeoutMs() {
+		return sessionTimeoutMs;
+	}
+
+	public void setSessionTimeoutMs(int sessionTimeoutMs) {
+		this.sessionTimeoutMs = sessionTimeoutMs;
+	}
+
+	public int getConnectionTimeoutMs() {
+		return connectionTimeoutMs;
+	}
+
+	public void setConnectionTimeoutMs(int connectionTimeoutMs) {
+		this.connectionTimeoutMs = connectionTimeoutMs;
+	}
+	
+	
+
+}
+
+```
+
+
+
+- 节点监听事件
+
+```
+
+```
+
+测试类
+
+```
+package com.jiang.zkclient;
+
+import javax.annotation.Resource;
+
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.zookeeper.CreateMode;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+
+/**
+* @author 作者 jiangbaixiong
+* @version 创建时间：2023年2月20日 上午10:49:10
+* @DESCRIPTION :
+*/
+@SpringBootTest(classes = BootZkClientApplication.class)
+public class BootZkClientApplicationTest {
+	
+	 @Autowired
+	 private CuratorFramework curatorFramework;
+	 
+	 @Test
+	 public void createNode() throws Exception {
+		 //创建一个持久节点
+		 //String path =curatorFramework.create().forPath("/curator-node");
+		 
+		 
+		 //创建一个临时节点
+		 String path =curatorFramework.create().withMode(CreateMode.EPHEMERAL_SEQUENTIAL).forPath("/curator-node","some-data".getBytes());
+		 System.out.println(String.format("curator create node :%s successfully!", path));
+		 System.in.read();
+	 }
+	 
+	 @Test
+	 public void testGetData() throws Exception {
+		 byte[] bytes = curatorFramework.getData().forPath("/curator-node");
+		 System.out.println(new String(bytes));
+		 
+	 }
+	 
+	 @Test
+	 public void testSetData() throws Exception {
+		 curatorFramework.setData().forPath("/curator-node", "changed!".getBytes());
+		 byte[] bytes = curatorFramework.getData().forPath("/curator-node");
+		 System.out.println(new String(bytes));
+		 
+	 }
+	 
+	 @Test
+	 public void testCreateWithParent() throws Exception {
+		 String pathWithParent="/node-parent/sub-node-1";
+		 String path =curatorFramework.create().creatingParentContainersIfNeeded().forPath(pathWithParent);
+		 System.out.println(String.format("curator create node :%s successfully!", path));
+	 }
+	 
+	 @Test
+	 public void testDelete() throws Exception {
+		String pathWithParent="/node-parent";
+		curatorFramework.delete().guaranteed().deletingChildrenIfNeeded().forPath(pathWithParent);
+	 }
+	
+}
+
+```
 
 
 
 ## 6 zookeeper实现分布式锁
 
+### 6.1 锁的种类
+
+- 读锁：大家都可以读。想上读锁的前提是：上锁之前的，所有锁中没有写锁
+- 写锁：只有得到写锁才能写数据。想上写锁的前提是：上锁之前，没有任何锁
+
+读读共享，读写互斥，写写互斥
+
+读锁共享，写锁排他
+
+### 6.2 ZK如何上读锁
+
+- 创建一个临时序号节点，节点的数据是read，表示是读锁
+- 获取当前zk中序号比自己小的所有节点
+  - 判断最小节点是否是读锁：
+  - 如果是读锁的话，则上锁成功
+  - 如果是写锁，则上锁失败。为最小节点设置监听，阻塞等待，zk的watch机制会当最小节点发生变化时通知当前节点，于是再次执行第二步的流程
+    
+
+![image.png](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302201119139.png)
+
+### 6.3 如何上写锁
+
+- 创建一个临时序号节点，节点的数据是write，表示是写锁
+
+- 获取zk中所有的子节点
+
+  - 判断自己是否是最小的节点
+
+    ：
+
+    - 如果是，则上锁成功
+    - 如果不是，说明前面还有锁，则上锁失败。监听最小的节点，如果最小节点发生变化，则回到第二步
 
 
 
+### 6.4 羊群效应
+
+如果用上述的上锁方式，只要节点发生变化，就会触发其他节点的监听事件，这样的话对zk的压力非常大，这就是所谓的羊群效应（惊群效应）。
+***可以调整为链式监听***，解决这个问题。
+
+![image.png](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302201233733.png)
+
+### 6.5 Curator实现读写锁
+
+![image.png](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302201233112.png)
+
+获取写锁
+
+```
+// 将上面的获取读锁改成获取写锁
+InterProcessLock interProcessLock = interProcessReadWriteLock.writeLock();
+```
+
+```
+package com.jiang.zkclient;
+
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.recipes.locks.InterProcessLock;
+import org.apache.curator.framework.recipes.locks.InterProcessReadWriteLock;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit4.SpringRunner;
+
+/**
+* @author 作者 jiangbaixiong
+* @version 创建时间：2023年2月20日 下午3:52:45
+* @DESCRIPTION :测试读写锁
+*/
+@SpringBootTest
+@RunWith(SpringRunner.class)
+public class TestReadWriteLock {
+	
+	@Autowired
+	CuratorFramework client;
+	
+	@Test
+	public void testGetReadLock() throws Exception {
+		InterProcessReadWriteLock interProcessReadWriteLock = new InterProcessReadWriteLock(client ,"/lock1");
+		InterProcessLock interProcessLock = interProcessReadWriteLock.readLock();
+		System.out.println("等待获取读锁对象");
+		interProcessLock.acquire();
+		for (int i = 1; i < 100; i++) {
+			Thread.sleep(3000);
+			System.out.println(i);
+		}
+		interProcessLock.release();
+		System.out.println("等待释放读锁对象");
+	}
+	
+	@Test
+	public void testGetWriteLock() throws Exception {
+		InterProcessReadWriteLock interProcessReadWriteLock = new InterProcessReadWriteLock(client ,"/lock1");
+		InterProcessLock interProcessLock = interProcessReadWriteLock.writeLock();
+		System.out.println("等待获取写锁对象");
+		interProcessLock.acquire();
+		for (int i = 1; i < 100; i++) {
+			Thread.sleep(3000);
+			System.out.println(i);
+		}
+		interProcessLock.release();
+		System.out.println("等待释放写锁对象");
+	}
+
+}
+
+```
 
 ## 7 zookeeper的watch机制
 
+### 7.1 机制介绍
 
+可以把watch机制理解成注册在znode上的触发器。当znode发生变化了（调用了create、delete、setData等方法时），将会触发znode上注册的对应事件，请求znode的客户端会接收到异步通知。
+具体交互过程：
+
+- 客户端调用getData方法，watch参数设置为true（即客户端监听节点的变化）。服务端接收到请求，返回节点数据，并且在对应的哈希表中插入被watch的znode路径，以及watcher列表。
+  - 监听节点数据变化：get -w /xxx
+  - 当节点数据发生变化了，客户端会有监听信息的打印
+  - 注意：客户端的监听只生效一次。如果想持续监听，需要在每次监听信息打印后，查看数据的时候，再使用：get -w /xxx
+    （get -w /xxx 的方式）在被监听的节点上创建子节点，watch监听事件不会被触发
+
+![image.png](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302201235058.png)
+
+- 当被watch的znode已删除，服务端会查找哈希表，找到znode对应的所有watcher，异步通知客户端，并删除哈希表中对应的key-value。
+
+![image.png](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302201235693.png)
+
+客户端使用了NIO的通信模式监听服务端的调用。
+
+### 7.2 zkCli客户端使用watch
+
+```
+create /xxx abc  # 创建持久节点/xxx，并设置节点数据为abc
+get -w /xxx # 一次性监听节点
+ls -w /xxx # 监听目录，创建和删除子节点会收到通知，子节点中新增节点不会收到通知
+ls -R -w /xxx # 监听节点所有层级子节点的变化，但内容的变化不会收到通知
+```
+
+![image-20230220153730280](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302201537356.png)
+
+![image-20230220154020996](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302201540046.png)
+
+![image-20230220154237494](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302201542541.png)
+
+### 7.3  Curator客户端使用watch
+
+![image.png](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302201236119.png)
+
+```
+@Test
+	public void addNodeListener() throws Exception {
+		NodeCache nodeCache = new NodeCache(curatorFramework, "/curator-node");
+		nodeCache.getListenable().addListener(new NodeCacheListener() {
+
+			@Override
+			public void nodeChanged() throws Exception {
+				System.out.println("path node changed");
+				printNodeData();
+			}
+		});
+
+		nodeCache.start();
+		System.in.read();
+
+	}
+
+	public void printNodeData() throws Exception {
+		byte[] bytes = curatorFramework.getData().forPath("/curator-node");
+		System.out.println(new String(bytes));
+	}
+```
 
 
 
 ## 8 zookeeper集群
 
+### 8.1 集群角色
+
+zookeeper集群中的节点有三种角色：
+
+- leader：处理集群的所有事务请求，一般进行写请求处理，集群中只有一个leader
+- follower：只能处理读请求，可参与leader选举
+- observer：只能处理读请求，提高集群读的性能，但不能参与leader选举
+
+### 8.2  伪集群搭建
+
+如果已经启动服务了，必须先停止zookeeper服务
+
+```
+zkServer.sh stop
+```
+
+进入zkdata文件夹
+
+```
+cd /usr/local/zookeeper/zkdata
+
+[root@localhost zookeeper]# cd zkdata/
+[root@localhost zkdata]# mkdir zk1
+[root@localhost zkdata]# mkdir zk2
+[root@localhost zkdata]# mkdir zk3
+[root@localhost zkdata]# mkdir zk4
+```
+
+搭建4个节点，其中一个节点为observer
+
+```
+# 在/usr/local/zookeeper中创建四个文件
+/usr/local/zookeeper/zkdata/zk1# echo 1 > myid
+/usr/local/zookeeper/zkdata/zk2# echo 2 > myid 
+/usr/local/zookeeper/zkdata/zk3# echo 3 > myid
+/usr/local/zookeeper/zkdata/zk4# echo 4 > myid
+
+```
+
+编写4个zoo.cfg
+
+```
+# 不同的zoo.cfg文件中需要更改两处：dataDir和clientPort
 
 
 
+dataDir=/usr/local/zookeeper/zkdata/zk1  # 数据日志存放路径
+clientPort=2181 # 提供给客户端通信的端口
+# 2001,2002,2003,2004是用于服务节点之间通信的
+# 3001，3002，3003，3004是用于投票选举leader的端口
+server.1=192.168.133.103:2001:3001
+server.2=192.168.133.103:2002:3002
+server.3=192.168.133.103:2003:3003
+server.4=192.168.133.103:2004:3004:observer
+
+```
+
+举例，修改zoo2.cfg
+
+![image-20230220173154240](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302201731304.png)
+
+
+
+启动4个服务节点
+
+```
+[root@localhost bin]# zkServer.sh start ../conf/zoo1.cfg
+ZooKeeper JMX enabled by default
+Using config: ../conf/zoo1.cfg
+Starting zookeeper ... STARTED
+[root@localhost bin]# zkServer.sh start ../conf/zoo2.cfg
+ZooKeeper JMX enabled by default
+Using config: ../conf/zoo2.cfg
+Starting zookeeper ... STARTED
+[root@localhost bin]# zkServer.sh start ../conf/zoo3.cfg
+ZooKeeper JMX enabled by default
+Using config: ../conf/zoo3.cfg
+Starting zookeeper ... STARTED
+[root@localhost bin]# zkServer.sh start ../conf/zoo4.cfg
+ZooKeeper JMX enabled by default
+Using config: ../conf/zoo4.cfg
+Starting zookeeper ... STARTED
+
+```
+
+查看集群的角色
+
+```
+[root@localhost bin]# zkServer.sh status ../conf/zoo1.cfg
+ZooKeeper JMX enabled by default
+Using config: ../conf/zoo1.cfg
+Client port found: 2181. Client address: localhost. Client SSL: false.
+Mode: follower
+[root@localhost bin]# zkServer.sh status ../conf/zoo2.cfg
+ZooKeeper JMX enabled by default
+Using config: ../conf/zoo2.cfg
+Client port found: 2182. Client address: localhost. Client SSL: false.
+Mode: leader
+[root@localhost bin]# zkServer.sh status ../conf/zoo3.cfg
+ZooKeeper JMX enabled by default
+Using config: ../conf/zoo3.cfg
+Client port found: 2183. Client address: localhost. Client SSL: false.
+Mode: follower
+[root@localhost bin]# zkServer.sh status ../conf/zoo4.cfg
+ZooKeeper JMX enabled by default
+Using config: ../conf/zoo4.cfg
+Client port found: 2184. Client address: localhost. Client SSL: false.
+Mode: observe
+```
+
+![image.png](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302201734450.png)
+
+### 8.3 客户端连接zookeeper集群
+
+```
+[root@localhost ~]# zkCli.sh -server 192.168.133.103:2181,192.168.133.103:2182,192.168.133.103:2183
+```
+
+![image-20230220173722397](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302201737475.png)
 
 
 
 ## 9 ZAB协议
 
+### 9.1 什么是ZAB协议
 
+zookeeper作为非常重要的分布式协调组件，需要进行集群部署，集群中会以一主多从的形式进行部署。zookeeper为了保证数据一致性，使用了ZAB协议（zookeeper atomic broadcast），这个协议解决了zookeeper的崩溃恢复和主从数据同步的问题。
+![image.png](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302201601069.png)
+
+
+
+### 9.2 ZAB协议定义的四种节点状态
+
+- looking：选举状态
+- following：follower节点（从节点）所处的状态
+- leading：leader节点（主节点）所处的状态
+- observer：观察者节点所处的状态
+
+### 9.3 leader选举机制
+
+zookeeper集群中的节点上线时，将会进入looking状态，即leader选举状态，会经历过程如下：
+
+![image.png](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302201602196.png)
+
+- 选票格式（由两部分组成）
+  myid：每个节点初始配置的myid值
+  zXid：事务id，节点上每进行一次事务的增删改操作，zXid就会+1
+- 第一轮投票：
+  两个节点根据自己的myid和zXid生成一张自己的选票
+  然后将各自持有的选票投递给对方
+  这样，两个节点都各自拥有两张选票。然后各自按照（先比较zXid，取出较大者；如果zXid相同，再比较myid，取出较大者）的规则，选出一张选票，投到投票箱中
+  - 为什么先比较zXid？ —— 因为zXid较大者，代表节点上的数据更新次数较多，更适合作为leader。而且后面，经历过数据同步，最终，各个节点上的数据都会保持一致
+  - 第一轮投票结束。投票箱中产生了各个节点的选票（node-1中（2，0）；node-2中（2，0））
+- 第二轮投票：—— 由于对于一个节点的来说，投票箱中的票数没有过半（3个参与投票的节点，过半票数为2，目前节点中的票数为1，1<2，所以需要进行第二轮投票）
+  各个节点，将上一轮手中较大的选票投递给对方
+  各自按照（先比较zXid，取出较大者；如果zXid相同，再比较myid，取出较大者）的规则，选出一张选票，投到投票箱中
+  第二轮投票结束。投票箱中产生了各个节点的选票（node-1中（2，0）（2，0）；node-2中（2，0）（2，0））
+- 此时，投票箱中有票数过半的节点，该节点确定为leader，选票结束
+- 第三台节点启动后，发现集群中已经选举出了leader，于是把自己作为follower了
+  总结：zookeeper集群中，一般设置奇数节点比较好，leader选举的时候，比较好判断票数过半的节点
+
+### 9.4 崩溃恢复时的leader选举
+
+leader建立完后，leader周期性地不断向follower发送心跳（ping命令，没有内容地socket）。当leader崩溃后，follower发现socket通道关闭，于是follower就会从following状态切换到looking状态，重新回到第3节中地leader选举状态。
+此时集群不能对外提供服务。
+
+### 9.5 主从服务器之间的数据同步
+
+![image.png](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302201603674.png)
+
+- leader收到半数以上follower的ack，就发送commit（向所有follower，和自己）
+  - 为什么要半数以上？ —— 半数以上的好处：提升整个集群写数据的性能。因为集群中3台节点，有两台都写成功了，说明网络通信基本正常，集群能够持续提供服务
+  - 半数，指的是整个集群所有节点的半数
+- 也可以理解成分布式事务中的两阶段提交
+  
+
+### 9.6 zookeeper中的NIO和BIO的应用
+
+zookeeper在3.1之后的版本用的Netty
+
+- NIO
+  用于被客户端连接的2181端口，使用的是NIO模式与客户端建立连接
+  客户端开启watch时，也使用NIO，等待zookeeper服务器的回调
+- BIO
+  集群在选举时，多个节点之间的投票通信端口，使用的是BIO进行通信
+
+### 9.7 zookeeper的一致性问题
+
+*zookeeper在数据同步时，追求的并不是强一致性，它保证的是顺序一致性（通过事务id的单调递增）*
 
 
 
@@ -388,4 +992,3 @@ BASE理论是对CAP理论的延伸，核心思想：即使无法做到强一致�
   - 指允许系统存在中间状态，而该状态不会影响系统的整体可用性（如：支付中）。分布式存储中，一般一份数据至少会有三个副本，允许不同节点间副本同步的延时就是软状态的体现。mysql replication的异步复制也是软状态的一种体现。 
 - 最终一致性（eventual consistency）
   - 指系统中的所有数据副本经过一定时间后，最终能够达到一致的状态。弱一致性和强一致性相反，最终一致性是弱一致性的一种特殊情况。
-    
