@@ -1418,13 +1418,174 @@ public class BatchDelDoc {
 
 #### 4.1.1  单节点部署
 
+进入到官网：https://www.elastic.co/cn/，这里下载 7.8.0 版本的 ES
 
+bin 包下，双击  elasticsearch.bat，即可 启动 ES。
 
+注意：9300 端口为 ElasticSearch 集群件组件的通信端口，9200 端口为浏览器访问的 http 协议 Restful 端口。
 
+![image-20230225152748882](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225152748882.png)
 
 #### 4.1.2 集群部署
 
+##### 创建目录
 
+创建 elasticsearch-cluster 文件夹，在 /elasticsearch-cluster 下创建 3个节点文件夹。
+
+![image-20230225154324676](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225154324676.png)
+
+在 node-1001、node-1002、node-1003 文件夹 复制进去 elasticsearch 服务。
+
+![image-20230225154350991](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225154350991.png)
+
+如果之前单机启动过，要删除data文件夹和logs里的文件
+
+##### 修改配置文件
+
+![image-20230225153418895](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225153418895.png)
+
+放开注释，修改配置里的配置项
+
+![image-20230225153625219](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225153625219.png)
+
+![image-20230225153847519](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225153847519.png)
+
+![image-20230225154006451](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225154006451.png)
+
+尾部添加
+
+![image-20230225154031986](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225154031986.png)
+
+```
+# ---------------------------------- Cluster -----------------------------------
+#
+# Use a descriptive name for your cluster:
+#
+cluster.name: my-application
+#
+# ------------------------------------ Node ------------------------------------
+#
+# Use a descriptive name for the node:
+#
+node.name: node-1001
+node.master: true
+node.data: true
+# ---------------------------------- Network -----------------------------------
+#
+# Set the bind address to a specific IP (IPv4 or IPv6):
+#
+network.host: localhost
+#
+# Set a custom port for HTTP:
+#
+http.port: 1001
+# TCP 监听端口
+transport.tcp.port: 9301
+
+# 跨域配置
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+```
+
+然后双击 /bin/elasticsearch.bat 启动
+
+![image-20230225154958561](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225154958561.png)
+
+节点2配置
+
+```
+# ---------------------------------- Cluster -----------------------------------
+#
+# Use a descriptive name for your cluster:
+#
+cluster.name: my-application
+#
+# ------------------------------------ Node ------------------------------------
+#
+# Use a descriptive name for the node:
+#
+node.name: node-1002
+node.master: false
+node.data: true
+# ---------------------------------- Network -----------------------------------
+#
+# Set the bind address to a specific IP (IPv4 or IPv6):
+#
+network.host: localhost
+#
+# Set a custom port for HTTP:
+#
+http.port: 1002
+# TCP 监听端口
+transport.tcp.port: 9302
+
+discovery.seed_hosts: ["localhost:9301"]
+discovery.zen.fd.ping_timeout: 1m
+discovery.zen.fd.ping_retries: 5
+
+# 跨域配置
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+```
+
+![image-20230225155442391](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225155442391.png)
+
+然后双击 /bin/elasticsearch.bat 启动
+
+观察发现已启动2个节点
+
+![image-20230225155852617](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225155852617.png)
+
+节点3
+
+```
+# ---------------------------------- Cluster -----------------------------------
+#
+# Use a descriptive name for your cluster:
+#
+cluster.name: my-application
+#
+# ------------------------------------ Node ------------------------------------
+#
+# Use a descriptive name for the node:
+#
+node.name: node-1003
+node.master: false
+node.data: true
+# ---------------------------------- Network -----------------------------------
+#
+# Set the bind address to a specific IP (IPv4 or IPv6):
+#
+network.host: localhost
+#
+# Set a custom port for HTTP:
+#
+http.port: 1003
+# TCP 监听端口
+transport.tcp.port: 9303
+
+discovery.seed_hosts: ["localhost:9301","localhost:9302"]
+discovery.zen.fd.ping_timeout: 1m
+discovery.zen.fd.ping_retries: 5
+
+# 跨域配置
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+```
+
+然后双击 /bin/elasticsearch.bat 启动
+
+![image-20230225160214812](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225160214812.png)
+
+观察发现已启动3个节点
+
+
+
+##### 查询集群状态
+
+查询集群的状态：http://localhost:1001/_cluster/health
+
+![](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225160214812.png)
 
 
 
@@ -1432,19 +1593,350 @@ public class BatchDelDoc {
 
 #### 4.2.1 单机部署
 
+##### 下载
 
+ elasticsearch-7.8.0-linux-x86_64.tar.gz
 
+上传到服务器
 
+![image-20230225161630006](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225161630006.png)
+
+##### 解压缩
+
+```
+# 解压
+tar -zxvf elasticsearch-7.8.0-linux-x86_64.tar.gz
+
+# 改名
+mv elasticsearch-7.8.0 es
+# 移动
+mv es /usr/local/es
+```
+
+##### 创建用户
+
+因为安全问题，ES 不允许 root 用户直接运行，所以要创建新用户，在 root 用户中创建新用户。
+
+```
+# 新增 es 用户
+useradd es
+
+# 设置密码
+passwd es
+
+# 查看所有用户，/home 下 每一个文件夹就是一个用户
+cd /home
+ll
+
+# 如果需要删除 es 用户
+userdel -r es
+
+# 给 es 用户赋权 文件夹所有者（下面目录写自己 es 所在目录）
+chown -R es:es /usr/local/es
+```
+
+![image-20230225162323617](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225162323617.png)
+
+##### 修改配置
+
+/es/config/elasticsearch.yml
+
+```
+cluster.name: elasticsearch
+node.name: node-1
+network.host: 0.0.0.0
+http.port: 9200
+cluster.initial_master_nodes: ["node-1"]
+```
+
+![image-20230225162713242](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225162713242.png)
+
+#####  /etc/security/limits.conf
+
+```
+cd /etc/security/
+vi limits.conf
+
+# 每个进程可以打开的文件数的限制
+es soft nofile 65536
+
+es hard nofile 65536
+```
+
+##### /etc/security/limits.d/20-nproc.conf
+
+```
+vi /etc/security/limits.d/20-nproc.conf
+
+# 每个进程可以打开的文件数的限制
+es soft nofile 65536
+es hard nofile 65536
+```
+
+##### /etc/sysctl.conf
+
+```
+vi /etc/sysctl.conf
+
+# 一个进程可以拥有的 VMA （虚拟内存区域）的数量，默认值为 65536
+vm.max_map_count=655360
+```
+
+重新加载
+
+```
+sysctl -p
+```
+
+启动服务
+
+```
+# 进入到 es 目录下
+cd /01Java/es/
+
+# 启动 es （root 用户会启动失败）
+bin/elasticsearch
+
+# 切换 es 用户 启动 es 服务
+su es
+bin/elasticsearch
+```
+
+##### 测试
+
+注意：防火墙；端口开放
+
+关闭防火墙：systemctl stop firewalld
+
+异常
+
+```
+[2023-02-25T16:35:13,219][INFO ][o.e.t.TransportService   ] [node-1] publish_address {192.168.204.105:9300}, bound_addresses {[::]:9300}
+[2023-02-25T16:35:13,477][INFO ][o.e.b.BootstrapChecks    ] [node-1] bound or publishing to a non-loopback address, enforcing bootstrap checks
+ERROR: [1] bootstrap checks failed
+[1]: max virtual memory areas vm.max_map_count [65530] is too low, increase to at least [262144]
+ERROR: Elasticsearch did not exit normally - check the logs at /usr/local/es/logs/elasticsearch.log
+[2023-02-25T16:35:13,504][INFO ][o.e.n.Node               ] [node-1] stopping ...
+[2023-02-25T16:35:13,526][INFO ][o.e.n.Node               ] [node-1] stopped
+[2023-02-25T16:35:13,527][INFO ][o.e.n.Node               ] [node-1] closing .
+```
+
+解决办法：
+
+重新加载/etc/sysctl.conf配置
+
+```
+sysctl -p
+```
+
+浏览器查询验证
+
+![image-20230225163934857](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230225163934857.png)
 
 
 
 #### 4.2.2 集群部署
 
+在 Linux 单节点部署 中，Node_1 已部署 es。
 
+在 Node_2、Node_3 服务器中 部署 es。
 
+```
+# 解压
+tar -zxvf elasticsearch-7.8.0-linux-x86_64.tar.gz
 
+# 改名
+mv elasticsearch-7.8.0 es
+```
 
+在 Node_2、Node_3 中创建 es 用户。
 
+```
+# 新增 es 用户
+useradd es
+
+# 设置密码（密码设为 es）
+passwd es
+
+# 查看所有用户，/home 下 每一个文件夹就是一个用户
+cd /home
+ll
+
+# 删除 es 用户
+userdel -r es
+
+# 给 es 用户赋权 文件夹所有者（下面目录写自己 es 所在目录）
+chown -R es:es /01Java/es
+```
+
+参照单节点，修改另外2台服务器的配置
+
+```
+cd /etc/security/
+vi limits.conf
+
+# 每个进程可以打开的文件数的限制
+es soft nofile 65536
+es hard nofile 65536
+```
+
+```
+vi /etc/security/limits.d/20-nproc.conf
+
+# 每个进程可以打开的文件数的限制
+es soft nofile 65536
+es hard nofile 65536
+
+# * 代表 linux 所有用户名称
+* hard nproc 4096
+```
+
+```
+vi /etc/sysctl.conf
+
+# 一个进程可以拥有的 VMA （虚拟内存区域）的数量，默认值为 65536
+vm.max_map_count=655360
+
+# 重新加载， 使配置生效。
+sysctl -p
+```
+
+修改3个节点的配置文件
+
+```
+# 集群名称
+cluster.name: cluster-es
+# 节点名称，每个节点的名称不能重复
+node.name: node-1
+# Ip地址
+network.host: 192.168.27.251
+http.port: 9200
+# 是不是有资格 主节点
+node.master: true
+node.data: true
+
+# head 插件需要打开着两个配置
+http.cors.allow-origin: "*"
+http.cors.enabled: true
+
+http.max_content_length: 200mb
+
+# es 7.x 之后新增的配置，初始化一个新的集群时需要此配置来选举 master
+cluster.initial_master_nodes: ["node-1"]
+# es 7.x 之后新增的配置，节点发现
+discovery.seed_hosts: ["192.168.27.251:9300","192.168.27.252:9300","192.168.27.253:9300"]
+gateway.recover_after_nodes: 2
+network.tcp.keep_alive: true
+network.tcp.no_delay: true
+transport.tcp.compress: true
+
+# 集群内同时启动的数据任务个数，默认是2个
+cluster.routing.allocation.cluster_concurrent_rebalance: 16
+# 添加或删除节点 及 负载均衡时并发恢复的线程个数，默认4个
+cluster.routing.allocation.node_concurrent_recoveries: 16
+# 初始化数据恢复时，并发恢复线程的个数，默认4个
+cluster.routing.allocation.node_initial_primaries_recoveries: 16
+```
+
+Node2
+
+```
+# 集群名称
+cluster.name: cluster-es
+# 节点名称，每个节点的名称不能重复
+node.name: node-2
+# Ip地址
+network.host: 192.168.27.252
+http.port: 9200
+# 是不是有资格 主节点
+node.master: true
+node.data: true
+
+# head 插件需要打开着两个配置
+http.cors.allow-origin: "*"
+http.cors.enabled: true
+
+http.max_content_length: 200mb
+
+# es 7.x 之后新增的配置，初始化一个新的集群时需要此配置来选举 master
+cluster.initial_master_nodes: ["node-1"]
+# es 7.x 之后新增的配置，节点发现
+discovery.seed_hosts: ["192.168.27.251:9300","192.168.27.252:9300","192.168.27.253:9300"]
+gateway.recover_after_nodes: 2
+network.tcp.keep_alive: true
+network.tcp.no_delay: true
+transport.tcp.compress: true
+
+# 集群内同时启动的数据任务个数，默认是2个
+cluster.routing.allocation.cluster_concurrent_rebalance: 16
+# 添加或删除节点 及 负载均衡时并发恢复的线程个数，默认4个
+cluster.routing.allocation.node_concurrent_recoveries: 16
+# 初始化数据恢复时，并发恢复线程的个数，默认4个
+cluster.routing.allocation.node_initial_primaries_recoveries: 16
+```
+
+Node3
+
+```
+# 集群名称
+cluster.name: cluster-es
+# 节点名称，每个节点的名称不能重复
+node.name: node-3
+# Ip地址
+network.host: 192.168.27.253
+http.port: 9200
+# 是不是有资格 主节点
+node.master: true
+node.data: true
+
+# head 插件需要打开着两个配置
+http.cors.allow-origin: "*"
+http.cors.enabled: true
+
+http.max_content_length: 200mb
+
+# es 7.x 之后新增的配置，初始化一个新的集群时需要此配置来选举 master
+cluster.initial_master_nodes: ["node-1"]
+# es 7.x 之后新增的配置，节点发现
+discovery.seed_hosts: ["192.168.27.251:9300","192.168.27.252:9300","192.168.27.253:9300"]
+gateway.recover_after_nodes: 2
+network.tcp.keep_alive: true
+network.tcp.no_delay: true
+transport.tcp.compress: true
+
+# 集群内同时启动的数据任务个数，默认是2个
+cluster.routing.allocation.cluster_concurrent_rebalance: 16
+# 添加或删除节点 及 负载均衡时并发恢复的线程个数，默认4个
+cluster.routing.allocation.node_concurrent_recoveries: 16
+# 初始化数据恢复时，并发恢复线程的个数，默认4个
+cluster.routing.allocation.node_initial_primaries_recoveries: 16
+```
+
+启动服务
+
+```
+# 进入到 es 目录下
+cd /usr/local/es/
+
+# 切换 es 用户 启动 es 服务
+su es
+bin/elasticsearch
+# 后台启动
+bin/elasticsearch -d
+```
+
+测试集群
+
+http://192.168.27.251:9200/_cat/nodes
+
+Bug：遇到节点无法加入到集群情况
+
+如果还是采用上述 配置，无法加入到集群，就自己形成了一个集群。把 node.master 改成 false，不让其自己形成一个集群。报错信息如下图。
+
+```
+# 是不是有资格 主节点
+node.master: false
+```
 
 
 
