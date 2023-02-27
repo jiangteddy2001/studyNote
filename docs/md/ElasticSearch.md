@@ -2617,6 +2617,487 @@ Spring Data是一个用于简化数据库、非关系型数据库、索引库访
 Spring Data Elasticsearch 介绍
 Spring Data Elasticsearch基于Spring Data API简化 Elasticsearch 操作，将原始操作Elasticsearch 的客户端API进行封装。Spring Data为Elasticsearch 项目提供集成搜索引擎。Spring Data Elasticsearch POJO的关键功能区域为中心的模型与Elastichsearch交互文档和轻松地编写一个存储索引库数据访问层。
 
+### 7.1 引入依赖
+
+```
+  <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-elasticsearch</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-test</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-test</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>jb-boot-es</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+```
+
+### 7.2 配置文件
+
+在 resources 目录中增加application.properties文件
+
+```
+# es 服务地址
+elasticsearch.host=127.0.0.1
+# es 服务端口
+elasticsearch.port=9200
+# 配置日志级别,开启 debug 日志
+logging.level.com.atguigu.es=debug
+```
+
+### 7.3 代码架构
+
+主入口
+
+```
+package com.jiang;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+/**
+ * [启动类]
+ *
+ * @author : jiangbx
+ * @version : [v1.0]
+ * @createTime : [2023/2/27 22:21]
+ */
+@SpringBootApplication
+public class MainApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(MainApplication.class, args);
+    }
+}
+
+```
+
+实体类
+
+```
+package com.jiang.data;
+
+import org.springframework.data.annotation.Id;
+import org.springframework.data.elasticsearch.annotations.Document;
+import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.FieldType;
+
+/**
+ * [实体类-商品]
+ *
+ * @author : jiangbx
+ * @version : [v1.0]
+ * @createTime : [2023/2/27 22:24]
+ */
+@Document(indexName = "shopping", shards = 3, replicas = 1)
+public class Product {
+    //必须有 id,这里的 id 是全局唯一的标识，等同于 es 中的"_id"
+    @Id
+    private Long id;//商品唯一标识
+
+    /**
+     * type : 字段数据类型
+     * analyzer : 分词器类型
+     * index : 是否索引(默认:true)
+     * Keyword : 短语,不进行分词
+     */
+    @Field(type = FieldType.Text, analyzer = "ik_max_word")
+    private String title;//商品名称
+
+    @Field(type = FieldType.Keyword)
+    private String category;//分类名称
+
+    @Field(type = FieldType.Double)
+    private Double price;//商品价格
+
+    @Field(type = FieldType.Keyword, index = false)
+    private String images;//图片地址
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public Double getPrice() {
+        return price;
+    }
+
+    public String getImages() {
+        return images;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public void setPrice(Double price) {
+        this.price = price;
+    }
+
+    public void setImages(String images) {
+        this.images = images;
+    }
+}
+
+```
+
+查询接口
+
+```
+package com.jiang.dao;
+
+import com.jiang.data.Product;
+import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
+import org.springframework.stereotype.Repository;
+
+/**
+ * [数据查询接口]
+ *
+ * @author : jiangbx
+ * @version : [v1.0]
+ * @createTime : [2023/2/27 22:31]
+ */
+@Repository
+public interface ProductDao extends ElasticsearchRepository<Product, Long> {
+}
+
+```
+
+配置类
+
+- ElasticsearchRestTemplate是spring-data-elasticsearch项目中的一个类,和其他spring项目中的 template类似。
+- 在新版的spring-data-elasticsearch 中，ElasticsearchRestTemplate 代替了原来的ElasticsearchTemplate。
+  原因是ElasticsearchTemplate基于TransportClient，TransportClient即将在8.x 以后的版本中移除。所以，我们推荐使用lasticsearchRestTemplate
+- ElasticsearchRestTemplate基于RestHighLevelClient客户端的。需要自定义配置类，继承AbstractElasticsearchConfiguration，并实现elasticsearchClient()抽象方法，创建RestHighLevelClient对象。
+  
+
+```
+package com.jiang.config;
+
+import org.apache.http.HttpHost;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.elasticsearch.config.AbstractElasticsearchConfiguration;
+/**
+ * [Elasticsearch配置类]
+ *
+ * @author : jiangbx
+ * @version : [v1.0]
+ * @createTime : [2023/2/27 22:27]
+ */
+@ConfigurationProperties(prefix = "elasticsearch")
+@Configuration
+public class ElasticsearchConfig extends AbstractElasticsearchConfiguration{
+    private String host ;
+    private Integer port ;
+    //重写父类方法
+    @Override
+    public RestHighLevelClient elasticsearchClient() {
+        RestClientBuilder builder = RestClient.builder(new HttpHost(host, port));
+        RestHighLevelClient restHighLevelClient = new
+                RestHighLevelClient(builder);
+        return restHighLevelClient;
+    }
+
+    public String getHost() {
+        return host;
+    }
+
+    public Integer getPort() {
+        return port;
+    }
+
+    public void setHost(String host) {
+        this.host = host;
+    }
+
+    public void setPort(Integer port) {
+        this.port = port;
+    }
+}
+
+```
+
+
+
+### 7.4 测试-索引操作
+
+```
+package com.jiang;
+
+import com.jiang.data.Product;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.test.context.junit4.SpringRunner;
+
+/**
+ * [一句话描述该类的功能]
+ *
+ * @author : jiangbx
+ * @version : [v1.0]
+ * @createTime : [2023/2/27 22:34]
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest
+public class SpringDataESIndexTest {
+    //注入 ElasticsearchRestTemplate
+    @Autowired
+    private ElasticsearchRestTemplate elasticsearchRestTemplate;
+    //创建索引并增加映射配置
+    @Test
+    public void createIndex(){
+        //创建索引，系统初始化会自动创建索引
+        System.out.println("创建索引");
+    }
+
+    @Test
+    public void deleteIndex(){
+        //创建索引，系统初始化会自动创建索引
+        boolean flg = elasticsearchRestTemplate.deleteIndex(Product.class);
+        System.out.println("删除索引 = " + flg);
+    }
+
+}
+
+```
+
+用Postman 检测有没有创建和删除。
+
+```
+#GET http://localhost:9200/_cat/indices?v 
+```
+
+![image-20230227224300346](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302272243508.png)
+
+
+
+### 7.5 测试-文档操作
+
+```
+package com.jiang;
+
+import com.jiang.dao.ProductDao;
+import com.jiang.data.Product;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.test.context.junit4.SpringRunner;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * [文档操作测试]
+ *
+ * @author : jiangbx
+ * @version : [v1.0]
+ * @createTime : [2023/2/27 22:45]
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest
+public class SpringDataESProductDaoTest {
+    @Autowired
+    private ProductDao productDao;
+    /**
+     * 新增
+     */
+    @Test
+    public void save(){
+        Product product = new Product();
+        product.setId(2L);
+        product.setTitle("华为手机");
+        product.setCategory("手机");
+        product.setPrice(2999.0);
+        product.setImages("http://www.atguigu/hw.jpg");
+        productDao.save(product);
+    }
+    //POSTMAN, GET http://localhost:9200/product/_doc/2
+
+    //修改
+    @Test
+    public void update(){
+        Product product = new Product();
+        product.setId(2L);
+        product.setTitle("小米 2 手机");
+        product.setCategory("手机");
+        product.setPrice(9999.0);
+        product.setImages("http://www.atguigu/xm.jpg");
+        productDao.save(product);
+    }
+    //POSTMAN, GET http://localhost:9200/product/_doc/2
+
+
+    //根据 id 查询
+    @Test
+    public void findById(){
+        Product product = productDao.findById(2L).get();
+        System.out.println(product);
+    }
+
+    @Test
+    public void findAll(){
+        Iterable<Product> products = productDao.findAll();
+        for (Product product : products) {
+            System.out.println(product);
+        }
+    }
+
+    //删除
+    @Test
+    public void delete(){
+        Product product = new Product();
+        product.setId(2L);
+        productDao.delete(product);
+    }
+    //POSTMAN, GET http://localhost:9200/product/_doc/2
+
+    //批量新增
+    @Test
+    public void saveAll(){
+        List<Product> productList = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            Product product = new Product();
+            product.setId(Long.valueOf(i));
+            product.setTitle("["+i+"]小米手机");
+            product.setCategory("手机");
+            product.setPrice(1999.0 + i);
+            product.setImages("http://www.atguigu/xm.jpg");
+            productList.add(product);
+        }
+        productDao.saveAll(productList);
+    }
+
+    //分页查询
+    @Test
+    public void findByPageable(){
+        //设置排序(排序方式，正序还是倒序，排序的 id)
+        Sort sort = Sort.by(Sort.Direction.DESC,"id");
+        int currentPage=0;//当前页，第一页从 0 开始， 1 表示第二页
+        int pageSize = 5;//每页显示多少条
+        //设置查询分页
+        PageRequest pageRequest = PageRequest.of(currentPage, pageSize,sort);
+        //分页查询
+        Page<Product> productPage = productDao.findAll(pageRequest);
+        for (Product Product : productPage.getContent()) {
+            System.out.println(Product);
+        }
+    }
+
+}
+
+```
+
+
+
+### 7.6 集成测试-文档搜索
+
+```
+package com.jiang;
+
+import com.jiang.dao.ProductDao;
+import com.jiang.data.Product;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.TermQueryBuilder;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.test.context.junit4.SpringRunner;
+
+/**
+ * [集成测试-文档搜索]
+ *
+ * @author : jiangbx
+ * @version : [v1.0]
+ * @createTime : [2023/2/27 22:46]
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest
+public class SpringDataESSearchTest {
+    @Autowired
+    private ProductDao productDao;
+    /**
+     * term 查询
+     * search(termQueryBuilder) 调用搜索方法，参数查询构建器对象
+     */
+    @Test
+    public void termQuery(){
+        TermQueryBuilder termQueryBuilder = QueryBuilders.termQuery("title", "小米");
+        Iterable<Product> products = productDao.search(termQueryBuilder);
+        for (Product product : products) {
+            System.out.println(product);
+        }
+    }
+    /**
+     * term 查询加分页
+     */
+    @Test
+    public void termQueryByPage(){
+        int currentPage= 0 ;
+        int pageSize = 5;
+        //设置查询分页
+        PageRequest pageRequest = PageRequest.of(currentPage, pageSize);
+        TermQueryBuilder termQueryBuilder = QueryBuilders.termQuery("title", "小米");
+        Iterable<Product> products =
+                productDao.search(termQueryBuilder,pageRequest);
+        for (Product product : products) {
+            System.out.println(product);
+        }
+    }
+
+
+}
+
+```
+
 
 
 ## 8、ElasticSearch8.x
