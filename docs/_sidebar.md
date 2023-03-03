@@ -3,7 +3,6 @@
     * [Java多线程](md/Java多线程.md)
 	* [Java8新特性](md/Java8新特性.md)
 	* [Java11新特性](md/Java11新特性.md)
-	* [Java爬虫](md/Java爬虫.md)
 * 网络编程
     * [Netty](md/Netty学习心得.md)
 * JVM
