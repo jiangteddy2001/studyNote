@@ -1,10 +1,15 @@
 * JAVA
     * [Java容器](md/Java容器.md)
     * [Java多线程](md/Java多线程.md)
+	* [Java8新特性](md/Java8新特性.md)
+	* [Java11新特性](md/Java11新特性.md)
+	* [Java爬虫](md/Java爬虫.md)
 * 网络编程
     * [Netty](md/Netty学习心得.md)
 * JVM
     * [JVM](md/JVM.md)
+* 移动端
+    * [Android](md/Android.md)	
 * Mybatis
     * [Mybatis](md/Mybatis.md)
 * Spring
@@ -21,6 +26,7 @@
 * 中间件
     * [Mycat](md/Mycat.md)
 	* [Canal](md/Canal.md)
+	* [ShardingSphere](md/ShardingSphere.md)
 * NoSql
     * [Redis](md/Redis.md)
 	* [MongoDB](md/MongoDB.md)
@@ -29,7 +35,6 @@
     * [RocketMq](md/RocketMq.md)
 	* [Rabbitmq](md/Rabbitmq.md)
 	* [Kafka](md/Kafka.md)
-	* [Pulsar](md/Pulsar.md)
 * MQTT
     * [Emqx](md/EMQX.md)
 * Nginx
@@ -48,10 +53,8 @@
     * [Linux命令](md/Linux指令.md)
 * 数据安全
     * [SSL](md/SSL.md)
+* 音视频	
 	* [gb35114](md/GB35114学习笔记.md)
-* 架构设计
-    * [安全架构](md/平台安全架构设计.md)
-* 性能
-    * [性能优化](md/性能优化.md)
+
 
 

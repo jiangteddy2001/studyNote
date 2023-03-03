@@ -2490,6 +2490,8 @@ ngram和 edge_ngram词单元过滤器可以产生适合用于部分匹配或者�
 
 Kibana是一个免费且开放的用户界面，能够让你对Elasticsearch 数据进行可视化，并让你在Elastic Stack 中进行导航。你可以进行各种操作，从跟踪查询负载，到理解请求如何流经你的整个应用，都能轻松完成。
 
+[Kibana下载网址](https://artifacts.elastic.co/downloads/kibana/kibana-7.8.0-windows-x86_64.zip)
+
 一、解压缩下载的 zip 文件。
 
 二、修改 config/kibana.yml 文件。
@@ -2506,13 +2508,19 @@ i18n.locale: "zh-CN"
 
 ```
 
+![image-20230228112854470](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302281129793.png)
+
+![image-20230228120845923](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302281208991.png)
+
 三、Windows 环境下执行 bin/kibana.bat 文件。（首次启动有点耗时）
+
+![image-20230228120907607](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302281209656.png)
 
 四、通过浏览器访问：http://localhost:5601。
 
+![image-20230228124307339](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302281243431.png)
 
-
-
+![image-20230228124400678](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202302281244773.png)
 
 ## 6、ElasticsearchHead 插件安装
 
