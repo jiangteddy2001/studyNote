@@ -289,7 +289,7 @@ psql --version
 ##### 初始化数据
 
 ```
- initdb -D /pgdata/12/data -w
+ initdb -D /pgdata/12/data -W
  # 生产环境
  initdb -A md5 -D $PGDATA -E UTF8 --locale=C -W
  
@@ -679,6 +679,19 @@ ARCH：WAL日志的归档日志
 2. pg_log（数据库运行日志） 内容可读 `默认关闭`的，需要设置参数启动
 3. pg_clog（事务提交日志，记录的是事务的元数据） 内容一般不具有可读性 `强制开启`
 
+![image-20230308215635008](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303082156192.png)
+
+```
+logging_collector =on
+#配置日志目录，默认为pg_log即可
+log_directory = 'pg_log' 
+log_statement = 'all'			# none, ddl, mod, all,日志记录级别，根据需要定，我是把所有的日志全记录下来方便定位问题，一般ddl就够了
+log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log' 
+log_file_mode = 0600
+log_rotation_age = 1d
+
+```
+
 ```
 PGDATA/log 运行日志（pg10前为PGDATA/pg_log）
 PGDATA/pg_wal 重做日志（pg10前为PGDATA/pg_xlog）
@@ -759,57 +772,591 @@ COPY 3
 
 ### 7.4 postgresql.conf
 
-
-
-
+![image-20230307142748035](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303071427253.png)
 
 
 
 ### 7.5 pg_hba.conf
 
-
-
-
-
-
+```
+略
+```
 
 ### 7.6 pg_ident.conf
 
-
+![image-20230307142841650](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303071428722.png)
 
 
 
 ### 7.7 控制文件
 
+```
+$ pg_controldata $PGDATA
+```
 
+![image-20230307143041073](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303071430129.png)
+
+```
+pg_control version number:            1201
+Catalog version number:               201909212
+Database system identifier:           7205531806125590987     #dbid
+Database cluster state:               in production           # primary
+pg_control last modified:             Tue 07 Mar 2023 02:25:25 PM CST
+Latest checkpoint location:           0/16891A0
+Latest checkpoint's REDO location:    0/16891A0                 # redo位置
+Latest checkpoint's REDO WAL file:    000000010000000000000001  #文件号
+Latest checkpoint's TimeLineID:       1
+Latest checkpoint's PrevTimeLineID:   1
+Latest checkpoint's full_page_writes: on
+Latest checkpoint's NextXID:          0:499                   #下一个事务ID
+Latest checkpoint's NextOID:          16407                   # 下一个OID
+Latest checkpoint's NextMultiXactId:  1
+Latest checkpoint's NextMultiOffset:  0
+Latest checkpoint's oldestXID:        480
+Latest checkpoint's oldestXID's DB:   1
+Latest checkpoint's oldestActiveXID:  0
+Latest checkpoint's oldestMultiXid:   1
+Latest checkpoint's oldestMulti's DB: 1
+Latest checkpoint's oldestCommitTsXid:0
+Latest checkpoint's newestCommitTsXid:0
+Time of latest checkpoint:            Fri 03 Mar 2023 05:50:19 PM CST
+Fake LSN counter for unlogged rels:   0/3E8
+Minimum recovery ending location:     0/0
+Min recovery ending loc's timeline:   0
+Backup start location:                0/0
+Backup end location:                  0/0
+End-of-backup record required:        no
+wal_level setting:                    replica  #wal级别
+wal_log_hints setting:                off
+max_connections setting:              100    #最大连接数
+max_worker_processes setting:         8
+max_wal_senders setting:              10
+max_prepared_xacts setting:           0
+max_locks_per_xact setting:           64
+track_commit_timestamp setting:       off
+Maximum data alignment:               8
+Database block size:                  8192      # 数据块大小
+Blocks per segment of large relation: 131072
+WAL block size:                       8192     #wal 数据块大小
+Bytes per WAL segment:                16777216     #单个wal大小
+Maximum length of identifiers:        64
+Maximum columns in an index:          32
+Maximum size of a TOAST chunk:        1996
+Size of a large-object chunk:         2048
+Date/time type storage:               64-bit integers
+Float4 argument passing:              by value
+Float8 argument passing:              by value
+Data page checksum version:           0
+Mock authentication nonce:            7f551d2130b3be2b0ffaf3de1458ddf44e14805868ea1c61b7c7cfaca2bf9565
+
+```
 
 
 
 ### 7.8 数据文件
 
+```
+pg中，每个索引、每个表都是一个单独的文件，pg中称为page（也称为段）,默认是每个大于1G的page会被分割。例如某个表有200g的大小，那么会被分割为200个文件存储
+```
+
+```
+select relfilenode from pg_class where relname='pg_statistic';
+
+select pg_relation_filepath('pg_statistic');
+
+show data_directory;
+
+postgres=# exit;
+[postgres@localhost ~]$ ls -al /pgdata/12/data/base/13593/2619;
+
+```
+
+![image-20230307143444233](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303071434289.png)
 
 
 
-
-### 7.9 Online WAL日志
-
+![image-20230307145121648](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303071451710.png)
 
 
 
+### 7.9 Online WAL日志（redo）
 
-### 7.10 ARCH WAL日志
+关于Online WAL日志
+
+```
+即Write Ahead Log预写式日志,简称wal日志,相当于oracle中的redo日志。
+pg中wal日志是动态切换,单个wal日志写满继续写下一个wal日志，连续不断生成wal日志。
+这个日志存在的目的，是保证奔溃后的安全。但也存在日志膨胀问题
+```
+
+设置Online WAL日志
+
+提供以下参数设置
+
+```
+max_wal_size=1GB
+min_wal_size=80M
+```
+
+![image-20230307145804302](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303071458387.png)
+
+wal位置
+
+wal在$PGDATA/pg_wal下
+
+```
+[postgres@localhost ~]$ cd /pgdata/12/data
+[postgres@localhost data]$ cd pg_wal/
+[postgres@localhost pg_wal]$ ll
+total 16384
+-rw-------. 1 postgres postgres 16777216 Mar  7 14:30 000000010000000000000001
+drwx------. 2 postgres postgres        6 Mar  1 19:03 archive_status
+
+```
+
+wal命名格式
+
+![image-20230307150133343](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303071501401.png)
+
+查看wal时间
+
+```
+select pg_walfile_name(pg_current_wal_lsn());   --查看当前wal日志文件
+
+select pg_current_wal_lsn();    --查看当前wal日志
+
+select * from pg_ls_waldir() order by modification asc; --查看所有wal日志
+
+select current_timestamp;    --查看当前时间
+
+```
+
+切换日志
+
+```
+select pg_switch_wal();  --日志切换
+```
+
+查看具体内容
+
+```
+pg_waldump  $PGDATA/pg_wal/000000010000000000000002  --查看日志文件内容 （）
+```
 
 
 
+### 7.10 ARCH WAL日志（归档日志）
 
+![image-20230307150518983](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303071505082.png)
+
+配置参数
+
+```
+cd /pgdata/12/data
+vi postgresql.conf
+
+wal_level = replica
+
+archive_mode = on
+
+archive_command = 'test ! -f /archive/%f && cp %p /archive/%f'
+
+# 记得要提前创建文件夹
+mkdir /archive
+chown -R postgres. /archive
+```
+
+![image-20230307231231810](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303072312871.png)
+
+![image-20230307231431404](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303072314460.png)
+
+![image-20230308225706664](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303082257732.png)
+
+修改完参数之后重启数据库生效
+
+```
+pg_ctl restart 
+```
+
+查看归档日志
+
+```
+
+select pg_switch_wal();
+```
 
 ## 8 备份恢复
 
+### 8.1 需要备份什么？
+
+```
+数据
+归档日志
+```
+
+### 8.2 备份方式
+
+#### 8.2.1 逻辑导出工具
+
+- 用到pg_dump和pg_dumpall两个备份工具，这两个工具不会产生文件系统级别的备份，并且不能用于连续归档方案。尽管如此，在很多需要高可靠性的情况下，它是首选的备份技术。
+
+- `pg_dump`是一个普通的PostgreSQL客户端应用，可以访问该数据库的远端主机上进行备份工作。
+- `pg_dump`每次只转储一个数据库，而且它不会转储关于角色或表空间（因为它们是集簇范围的）的信息。
+
+```
+pg_dump
+
+pg_dumpall
+```
+
+![image-20230307220344824](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303072203004.png)
+
+导出命令
+
+```
+pg_dump -d postgres >/home/jiang/backup.sql;
+```
+
+导入命令
+
+```
+psql </tmp/backup.sql
+```
+
+![image-20230307220613424](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303072206478.png)
+
+对于非常大型的数据库，可以将将split配合其他两种方法(gizip,并行度)之一进行使用。
+
+```
+# 处理大型数据库时,可以压缩存储
+    pg_dump dbname | gzip > filename.gz
+    
+    # 此时的恢复:
+        gunzip -c filename.gz | psql dbname
+        # 或者
+        cat filename.gz | gunzip | psql dbname
+ 
+# 大型数据库，分割存储
+    # 让每一块的大小为1兆字节
+        pg_dump dbname | split -b 1m - filename
+   
+    # 恢复
+        cat filename* | psql dbname
+ 
+# 自定义转储格式
+    # 如果PostgreSQL所在的系统上安装了zlib压缩库，
+    # 自定义转储格式将在写出数据到输出文件时对其压缩。这
+    # 将产生和使用gzip时差不多大小的转储文件，
+    # 但是这种方式的一个优势是其中的表可以被有选择地恢复。
+    pg_dump -Fc dbname > filename
+ 
+    # 恢复
+    # 自定义格式的转储不是psql的脚本，只能通过pg_restore恢复
+    pg_restore -d dbname filename
+ 
+# 使用并行模式转储
+    # 使用-j参数控制并行度，并行转储只支持“目录”归档格式
+    pg_dump -j num -F d -f out.dir dbname
+ 
+#目录格式备份：
+pg_dump -h localhost -p 5432 -U someuser -F d -f /somepath/a_directory mydb
+ 
+# 从9.3版本开始支持并行备份选项--jobs (-j),
+# 此选项只有在按目录格式进行备份时才会生效，每个写线程只负责写一个单独的文件，
+# 因此一定是输出结果为多个独立的文件时才可以并行。
+pg_dump -h localhost -p 5432 -U someuser -j 3 -Fd -f /somepath/a_directory mydb
+```
+
+pg_dumpall命令
+
+```
+pg_dumpall备份一个给定集簇中的每一个数据库，并且也保留了集簇范围的数据，如角色和表空间定义。
+pg_dump只备份数据库集群中的某个数据库的数据，它不会导出角色和表空间相关的信息，因为这些信息是整个数据库集群共用的，不属于某个单独的数据库。pg_dumpall，对集簇中的每个数据库调用pg_dump来完成该工作,还会还转储对所有数据库公用的全局对象（pg_dump不保存这些对象）。
+pg_dumpall工作时会发出命令重新创建角色、表空间和空数据库，接着为每一个数据库pg_dump。这意味着每个数据库自身是一致的，但是不同数据库的快照并不同步。
+
+集簇范围的数据可以使用pg_dumpall的–globals-only选项来单独转储。
+
+```
+
+建议
+
+```
+建议每天对角色和表空间定义等全局对象进行备份，但不建议每天使用pg_dumpall来备份全库数据，因为pg_dumpall仅支持导出为SQL文本格式，而使用这种庞大的SQL文本备份来进行全库级别的数据库恢复时及其耗时的，所以一般只建议使用pg_dumpall来备份全局对象而非全库数据。
+pg_dumpall可实现仅备份角色和表空间定义：
+pg_dumpall -h localhost -U postgres --port=5432 -f myglobals.sql --globals-only
+如果仅需备份角色定义而无需备份表空间，添加--roles-only选项：
+pg_dumpall -h localhost -U postgres --port=5432 -f myroles.sql --roles-only 
+
+```
 
 
 
+#### 8.2.2 物理备份工具
 
-## 9 Springboot
+连续归档
+
+```
+pg_basebackup
+```
+
+该方式的策略是把一个文件系统级别的全量备份和WAL(预写式日志)级别的增量备份结合起来。当需要恢复时，先恢复文件系统级别的备份，然后重放备份的WAL文件，把系统恢复到之前的某个状态。
+
+在任何时间，PostgreSQL在数据集簇目录的pg_wal/子目录下都保持有一个预写式日志（WAL）。这个日志存在的目的是为了保证崩溃后的安全：如果系统崩溃，可以“重放”从最后一次检查点以来的日志项来恢复数据库的一致性。
+
+这种备份有显著的优点：
+
+- 不需要一个完美的一致的文件系统备份作为开始点。备份中的任何内部不一致性将通过日志重放来修正。
+- 可以结合一个无穷长的WAL文件序列用于重放，可以通过简单地归档WAL文件来达到连续备份。
+- 不需要重放WAL项一直到最后。可以在任何点停止重放，并使数据库恢复到当时的一致状态。
+- 可以连续地将一系列WAL文件输送给另一台已经载入了相同基础备份文件的机器，得到一个实时的热备份系统。
+  
+
+### 8.3 pg_basebackup物理备份工具应用
+
+#### 8.3.1备份
+
+```
+# 备份的目录必须提前创建好，并且是空的
+pg_basebackup -D /pgdata/pg_backup/ -Ft -Pv -Upostgres -h 192.168.133.118 -p 1921 -R
+```
+
+![image-20230307222808598](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303072228652.png)
+
+修改pg_hba.conf
+
+![image-20230307222745559](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303072227615.png)
+
+重启
+
+```
+pg_ctl restart
+```
+
+开始备份
+
+```
+pg_basebackup -D /pgdata/pg_backup/ -Ft -Pv -Upostgres -h 192.168.133.118 -p 1921 -R
+```
+
+![image-20230307222950585](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303072229639.png)
+
+备份成功
+
+![image-20230307223107413](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303072231460.png)
+
+模拟删除数据
+
+```
+[postgres@localhost pg_backup]$ pg_ctl stop -mi
+waiting for server to shut down....2023-03-07 22:33:01.551 CST [1860] LOG:  received immediate shutdown request
+2023-03-07 22:33:01.554 CST [1860] LOG:  database system is shut down
+ done
+server stopped
+[postgres@localhost pg_backup]$ rm -rf /pgdata/12/data/*
+[postgres@localhost pg_backup]$ rm -rf /archive/*
+```
+
+
+
+#### 8.3.2恢复
+
+```
+tar xf base.tar -C /pgdata/12/data/
+
+# 解压缩归档日志
+tar xf pg_wal.tar -C /archive/
+
+```
+
+![image-20230307225046569](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303072250630.png)
+
+修改配置文件postgresql.auto.conf
+
+```
+# 追加
+restore_command = 'cp /archive/%f %p'
+recovery_target = 'immediate'
+
+# 执行命令（可选操作）
+touch /pgdata/12/data/recovery.signal
+
+# 停止继续恢复
+select pg_wal_replay_resume();
+
+```
+
+![image-20230307230034845](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303072300907.png)
+
+![image-20230309125338387](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303091253492.png)
+
+### 8.4 PITR实战应用
+
+#### 8.4.1 场景介绍
+
+![image-20230309125313028](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303091253224.png)
+
+```
+# 先创建一个数据库pit
+postgres=# create database pit;
+CREATE DATABASE
+postgres=# \c pit;
+Password: 
+You are now connected to database "pit" as user "postgres".
+
+pit=# create table tl (id int);
+CREATE TABLE
+pit=# insert into tl values(1);
+INSERT 0 1
+pit=# insert into tl values(2);
+INSERT 0 1
+pit=# insert into tl values(3);
+
+#删除原来的备份
+[postgres@localhost ~]$ rm -rf /pgdata/pg_backup/*
+
+# 重新发起一个备份
+pg_basebackup -D /pgdata/pg_backup/ -Ft -Pv -Upostgres -h 192.168.133.118 -p 1921 -R
+
+
+# 再次新建一个表t2
+pit=# create table t2(id int);
+CREATE TABLE
+pit=# insert into t2 values(1);
+INSERT 0 1
+pit=# insert into t2 values(2);
+
+#删除库
+postgres=# drop database pit;
+DROP DATABASE
+
+
+
+```
+
+观察一下归档日志
+
+![image-20230309132426084](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303091324141.png)
+
+```
+postgres=# select pg_switch_wal();
+ pg_switch_wal 
+---------------
+ 0/60120B8
+(1 row)
+
+```
+
+模拟停止数据库
+
+```
+[postgres@localhost archive]$ pg_ctl stop -mf
+waiting for server to shut down.... done
+server stopped
+[postgres@localhost archive]$ rm -rf /pgdata/12/data/*
+```
+
+开始恢复
+
+```
+
+[postgres@localhost archive]$ cd /pgdata/pg_backup/
+[postgres@localhost pg_backup]$ ll
+total 48956
+-rw-------. 1 postgres postgres 33347072 Mar  9 13:13 base.tar
+-rw-------. 1 postgres postgres 16780800 Mar  9 13:13 pg_wal.tar
+[postgres@localhost pg_backup]$ tar xf base.tar -C /pgdata/12/data/
+[postgres@localhost pg_backup]$ tar xf pg_wal.tar  -C /archive/
+```
+
+![image-20230309133305065](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303091333121.png)
+
+修改配置文件
+
+```
+[postgres@localhost pg_backup]$ cd $PGDATA
+[postgres@localhost data]$ vi postgresql.auto.conf
+
+```
+
+![image-20230309133430208](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303091334271.png)
+
+配置文件里，指定恢复时间点
+
+![image-20230309133940469](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303091339532.png)
+
+备份的归档日志，解压缩里面
+
+![image-20230309134052634](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303091340693.png)
+
+查看归档日志里
+
+```
+[postgres@localhost data]$ cd /archive/
+[postgres@localhost archive]$ ll
+```
+
+我们drop表的归档日志位置如下
+
+![image-20230309134527347](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303091345404.png)
+
+```
+[postgres@localhost archive]$ pg_waldump 000000020000000000000006
+```
+
+日志内容里，有记录
+
+![image-20230309134448286](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303091344362.png)
+
+如果要恢复到drop之前，所以ID号在之前
+
+![image-20230309134655448](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303091346522.png)
+
+```
+[postgres@localhost archive]$ cd $PGDATA
+[postgres@localhost data]$ vi postgresql.auto.conf
+
+
+# Do not edit this file manually!
+# It will be overwritten by the ALTER SYSTEM command.
+#primary_conninfo = 'user=postgres password=123456 host=192.168.133.118 port=1921 sslmode=disable sslcompression=0 gssencmode=disable krbsrvname=postgres target_session_attrs=any'
+restore_command = 'cp /archive/%f %p'
+recovery_target_xid = '494'
+#primary_conninfo = 'user=postgres password=123456 host=192.168.133.118 port=1921 sslmode=disable sslcompression=0 gssencmode=disable krbsrvname=postgres target_session_attrs=any'
+
+```
+
+![image-20230309135129328](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303091351380.png)
+
+```
+[postgres@localhost data]$ pg_ctl start
+
+postgres=# psql -W
+postgres-# \c pit;
+Password: 
+You are now connected to database "pit" as user "postgres".
+pit-# \dt;
+        List of relations
+ Schema | Name | Type  |  Owner   
+--------+------+-------+----------
+ public | t2   | table | postgres
+ public | tl   | table | postgres
+(2 rows)
+
+```
+
+测试是否恢复成功
+
+![image-20230309135510033](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303091355086.png)
+
+观察配置文件里关于归档恢复的说明
+
+```
+[postgres@localhost data]$ vi postgresql.conf
+```
+
+![image-20230309135656071](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303091356138.png)
+
+## 9 Springboot集成
 
 ### 9.1 建表
 
@@ -858,7 +1405,7 @@ logging.level.com.xx.mybatis.dao=Debug
 依赖
 
 ```
-   <dependency>
+       <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
@@ -1040,3 +1587,16 @@ class JbPsqlApplicationTests {
 ```
 
 ![image-20230303171404972](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303031714050.png)
+
+
+
+## 10 流复制
+
+### 10.1基础环境准备（多实例）
+
+
+
+### 10.2 设置配置文件
+
+
+
