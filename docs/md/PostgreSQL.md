@@ -1356,6 +1356,15 @@ pit-# \dt;
 
 ![image-20230309135656071](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303091356138.png)
 
+小技巧
+
+```
+# 做危险操作前，打一个恢复点
+select pg_create_restore_point('postgres-before-delete')
+```
+
+
+
 ## 9 Springboot集成
 
 ### 9.1 建表
@@ -1594,9 +1603,145 @@ class JbPsqlApplicationTests {
 
 ### 10.1基础环境准备（多实例）
 
+```
+hostnamectl set-hostname pg2
+```
 
+| 192.168.133.118 | 1921 | Centos7.8 | postgresql | master |
+| --------------- | ---- | --------- | ---------- | ------ |
+| 192.168.133.120 | 1921 | Centos7.8 | postgresql | standy |
 
 ### 10.2 设置配置文件
 
+#### 10.2.1 Master节点
+
+```
+# 创建用户
+create role replica with replication login password '123456';
+alter user replica with password '123456';
+
+# 修改pg_hba.conf文件，加入如下一行：
+host    replication     replica              0.0.0.0/0               md5
+
+# 修改配置vi postgresql.conf
+wal_level = replica  # 这个是设置主位wal的主机
+max_wal_senders = 5 #最多可以有几个流复制连接，差不多有几个从就设置几个
+wal_keep_size = 128   #设置流复制保留的最多的xlog数目
+wal_sender_timeout = 60s #流复制主机发送数据库的超时时间
+max_connections = 200   # 一般查多于写的应用从库的最大连接数要比较大
+hot_standby = on  #说明这台机器不仅仅用于数据归档也用于数据查询
+max_standby_streaming_delay = 30s  #数据流备份的最大延迟时间
+wal_receiver_status_interval = 10s #多久向主机报告一次从的状态，从每次数据复制都会向主报告状态，这里只是设置最长的时间间隔
+hot_standby_feedback = on #如果有错误的数据复制，是否向主进行反馈
+wal_log_hints = on    # also do full page writes of non-critical updates
+
+```
+
+![image-20230309224522067](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303092245217.png)
+
+![image-20230309224636425](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303092246494.png)
+
+```
+[postgres@localhost data]$ vi pg_hba.conf
+[postgres@localhost data]$ vi postgresql.conf
+```
+
+![image-20230309225046808](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303092250862.png)
+
+![image-20230309225239936](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303092252989.png)
 
 
+
+#### 10.2.2 standy节点
+
+```
+# 清空数据和归档
+[postgres@pg2 ~]$ rm -rf /pgdata/12/data/*
+[postgres@pg2 ~]$ rm -rf /archive/*
+[postgres@pg2 pgdata]$ rm -rf /pgdata/pg_backup/*
+
+# 备份主机的数据
+[postgres@pg2 pgdata]$ pg_basebackup -D /pgdata/pg_backup/ -Ft -Pv -Upostgres -h 192.168.133.118 -p 1921 -R
+
+# 恢复
+[postgres@pg2 pg_backup]$ tar xf base.tar  -C /pgdata/12/data
+[postgres@pg2 pg_backup]$ tar xf pg_wal.tar -C /archive/
+
+# 修改配置文件
+vi standby.signal
+standby_mode = 'on'
+
+# vi postgresql.conf
+recovery_target_timeline = 'latest'
+max_connections = 120 # 大于等于主节点
+hot_standby = on  #说明这台机器不仅用于数据归档，还可以用于数据查询
+max_standby_streaming_delay = 30s  #数据流备份的最大延迟时间
+wal_receiver_status_interval = 10s #多久向主机报告一次从的状态，从每次数据复制都会向主报告状态，这里只是设置最长的时间间隔
+hot_standby_feedback = on #如果有错误的数据复制，是否向主进行反馈
+max_wal_senders = 15 #最多可以有几个流复制连接，差不多有几个从就设置几个
+logging_collector =on
+log_directory = 'pg_log' 
+log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log' 
+
+
+#  postgresql.auto.conf
+restore_command = 'cp /var/postgre/archive1/%f %p'
+primary_conninfo = 'user=postgres password=123456 host=172.16.0.103 port=1921 sslmode=disable sslcompression=0 
+gssencmode=disable krbsrvname=postgres target_session_attrs=any'
+
+```
+
+![image-20230310123847739](C:/Users/Administrator/AppData/Roaming/Typora/typora-user-images/image-20230310123847739.png)
+
+![image-20230310124631437](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303101246507.png)
+
+![image-20230310124728548](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303101247617.png)
+
+启动
+
+```
+pg_ctl start
+```
+
+
+
+#### 10.2.3 监控状态
+
+主库 
+
+```
+Select pid,state,client_addr,sync_state,sync_priority from pg_stat_replication;
+```
+
+![image-20230310125655869](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303101256917.png)
+
+备库
+
+```
+psql -c "\x" -c "select * from pg_stat_wal_receiver;"
+```
+
+![image-20230310125752318](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303101257380.png)
+
+测试：
+
+在主服务器新建一个数据库，然后在副本上查看。
+
+```
+postgres=# create database testjiang;
+CREATE DATABASE
+```
+
+副本上已经有这个库了
+
+```
+[postgres@pg2 data]$ psql -W
+Password: 
+psql (12.6)
+Type "help" for help.
+
+postgres=# \l
+
+```
+
+![image-20230310130316595](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303101303644.png)
