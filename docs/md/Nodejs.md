@@ -354,6 +354,18 @@ server.listen(8080, function () {
 
 ```
 
+VSCODE打开终端，执行命令
+
+![image-20230312135541275](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230312135541275.png)
+
+浏览器访问http://127.0.0.1:8080/
+
+终端查看显示
+
+![image-20230312135746116](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230312135746116.png)
+
+
+
 #### req请求对象
 
 只要服务器接收到了客户端的请求，就会调用通过 server.on() 为服务器绑定的 request 事件处理函数
@@ -377,12 +389,27 @@ server.on('request', (req, res) => {
 
 ```
 
+![image-20230312140132885](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230312140132885.png)
+
+浏览器客户端反馈信息
+
+![image-20230312140323143](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230312140323143.png)
+
+
+
 #### 解决中文乱码问题
 
 当调用 res.end() 方法，向客户端发送中文内容的时候，会出现乱码问题，此时，需要手动设置内容的编码格式
 
 ```js
-server.on('request', (req, res) => {
+// 1. 导入 http 模块
+const http = require('http')
+
+// 2. 创建 web 服务器实例
+const server = http.createServer()
+
+// 3. 为服务器实例绑定 request 事件，监听客户端的请求
+server.on('request', (req, res) =>{
   // 定义一个字符串，包含中文的内容
   const str = `您请求的 URL 地址是 ${req.url}，请求的 method 类型为 ${req.method}`
   
@@ -393,7 +420,14 @@ server.on('request', (req, res) => {
   res.end(str)
 })
 
+// 4. 启动服务器
+server.listen(80, ()=> {  
+    console.log('server running at http://127.0.0.1')
+})
+
 ```
+
+![image-20230312140724277](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230312140724277.png)
 
 #### 实例
 
@@ -408,7 +442,7 @@ server.on('request', (req, res) => {
 5 设置 Content-Type 响应头，防止中文乱码
 6 使用 res.end() 把内容响应给客户端
 
-```
+```js
 const http = require('http')
 const server = http.createServer()
 
@@ -443,6 +477,142 @@ server.listen(80, () => {
 
 
 
-
-
 ## 5 模块化
+
+### 5.1 模块基本概念
+
+**模块化**：是指解决一个复杂问题时，**自顶向下逐层把系统划分成若干模块的过程**。对于整个系统来说，模块是可组合、分解和更换的单元
+编程领域中的模块化，就是遵守固定的规则，把一个大文件拆成独立并**互相依赖的**多个小模块。
+把代码进行模块化拆分的好处
+
+- 提高了代码的复用性
+- 提高了代码的可维护性
+- 可以实现按需加载
+
+**模块化规范**：就是对代码进行模块化的拆分与组合时，需要遵守的那些规则。例如使用什么样的语法格式来引用模块，在模块中使用什么样的语法格式向外暴露成员
+**模块化规范的好处**：大家都遵守同样的模块化规范写代码，降低了沟通的成本，极大方便了各个模块之间的相互调用，利人利己
+
+### 5.2 Node.js 中的模块化
+
+#### 5.2.1 模块的分类
+
+Node.js 中根据模块来源的不同，将模块分为了 3 大类
+
+- 内置模块（内置模块是由 Node.js 官方提供的，例如 fs、path、http 等）
+- 自定义模块（用户创建的每个 .js 文件，都是自定义模块）
+- 第三方模块（由第三方开发出来的模块，使用前**需要先下载**）
+
+#### 5.2.2 加载模块
+
+使用强大的 `require()`方法，可以加载需要的内置模块、用户自定义模块、第三方模块进行使用
+●注意：使用 require() 方法加载其它模块时，会**执行**被加载模块中的代码
+
+```
+const fs = require('fs')							// 内置模块
+const custom = require('./custom.js')	// 自定义模块，需指明路径，可以省略 .js 的后缀名
+const moment = require('moment')			// 第三方模块
+```
+
+注意，不用.js后缀名也可以加载对应的文件。
+
+#### 5.2.3.Node.js 中的模块作用域
+
+**模块作用域**：和函数作用域类似，在自定义模块中定义的变量、方法等成员，只能在当前模块内被访问，这种模块级别的访问限制
+●模块作用域的好处：防止了全局变量污染的问题
+
+```js
+// 模块作用域
+const username = '张三'
+
+function sayHello() {
+  console.log('大家好，我是' + username)
+}
+```
+
+```js
+const custom = require('./模块作用域')
+
+console.log(custom)
+
+```
+
+![image-20230312144551265](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230312144551265.png)
+
+![image-20230312144537729](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230312144537729.png)
+
+输出是空对象，说明模块内定义的变量只能在模块内被访问
+
+#### 5.2.4  模块作用域的成员
+
+**1 module对象**
+
+在每个 .js 自定义模块中都有一个module对象，它里面存储了和当前模块有关的信息
+
+```
+console.log(module)
+```
+
+![image-20230312145022229](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230312145022229.png)
+
+2 **module.exports 对象**
+
+●在自定义模块中，可以使用module.exports对象，将模块内的成员共享出去，供外界使用
+●外界用 require() 方法导入自定义模块时，得到的就是 module.exports 所指向的对象，而一般默认该属性是{}即空对象。
+
+```
+// 在一个自定义模块中，默认情况下， module.exports = {}
+
+const age = 20
+
+// 向 module.exports 对象上挂载 username 属性
+module.exports.username = 'zs'
+// 向 module.exports 对象上挂载 sayHello 方法
+module.exports.sayHello = function() {
+  console.log('Hello!')
+}
+module.exports.age = age//再共享出去
+
+// 让 module.exports 指向一个全新的对象
+module.exports = {
+  nickname: '小黑',
+  sayHi() {
+    console.log('Hi!')
+  }
+}
+
+```
+
+```
+// 在外界使用 require 导入一个自定义模块的时候，得到的成员，
+// 就是 那个模块中，通过 module.exports 指向的那个对象
+const m = require('./11.自定义模块')
+
+console.log(m)
+
+```
+
+![image-20230312150002704](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230312150002704.png)
+
+![image-20230312150017224](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230312150017224.png)
+
+![image-20230312150033111](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230312150033111.png)
+
+3 exports 对象
+
+- 由于 module.exports 单词写起来比较复杂，为了简化向外共享成员的代码，Node 提供了 exports 对象。默认情况下，exports 和 module.exports 指向同一个对象。最终共享的结果，还是以 module.exports 指向的对象为准。
+- 时刻谨记，require() 模块时，得到的永远是 module.exports 指向的对象，若出现exports 和 module.exports，最终不管exports怎么指向，都输出module.exports。注意挂载属性和指向新对象的区别。
+  
+
+![image-20230312150717035](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230312150717035.png)
+
+```
+console.log(exports)
+
+console.log(module.exports)
+
+console.log(exports== module.exports)
+```
+
+![image-20230312151350936](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/image-20230312151350936.png)
+
+注意：为了防止混乱，建议大家不要在同一个模块中同时使用 exports 和 module.exports
