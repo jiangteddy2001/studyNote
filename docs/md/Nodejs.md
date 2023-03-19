@@ -2064,7 +2064,7 @@ res.setHEader('Access-Control-Allow-Methods', '*')
 简单请求的特点：客户端与服务器之间只**会发生一次请求**
 预检请求的特点：客户端与服务器之间会发生两次请求，**OPTION 预检请求成功之后，才会发起真正的请求**
 
-#### 6.6.4 [JSONP](https://so.csdn.net/so/search?q=JSONP&spm=1001.2101.3001.7020) 接口（有缺陷只支持GET）
+#### 6.6.4 JSONP 接口（有缺陷只支持GET）
 
 - 概念：浏览器端通过
 
@@ -2415,13 +2415,14 @@ JWT 工作原理图：
 JWT 组成部分：
 
 - Header、Payload、Signature
+
 - Payload 是真正的用户信息，加密后的字符串
+
 - Header 和 Signature 是安全性相关部分，保证 Token 安全性
+
 - 三者使用 `.` 分隔
 
-
-
-##### JWT 使用方式
+  使用方式
 
 - 客户端会把 JWT 存储在 localStorage 或 sessionStorage 中
 - 此后客户端与服务端通信需要携带 JWT 进行身份认证，将 JWT 存在 HTTP 请求头 Authorization 字段中
