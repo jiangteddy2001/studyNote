@@ -2410,7 +2410,7 @@ JWT 工作原理图：
 
 用户的信息通过 Token 字符串的形式，保存在客户端浏览器中。服务器通过还原 Token 字符串的形式来认证用户的身份。
 
-## ![JWT](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303172257979.png)
+ ![JWT](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303172257979.png)
 
 JWT 组成部分：
 
@@ -2509,3 +2509,1413 @@ app.use((err, req, res, next) => {
   res.send({ status: 500, message: 'Unknown error' })
 })
 ```
+
+
+
+## 8 实战项目
+
+### 8.1 项目初始化
+
+#### 8.1.1 创建项目
+
+新建 `api_server` 文件夹作为项目根目录，并在项目根目录中运行如下的命令，初始化包管理配置文件：
+
+```
+npm init -y
+```
+
+安装指定版本的express
+
+```
+npm i express@4.17.1
+```
+
+项目根目录中新建 `app.js` 作为整个项目的入口文件，并初始化如下的代码：
+
+```js
+const express = require('express')
+// 创建 express 的服务器实例
+const app = express()
+
+// write your code here...
+
+// 调用 app.listen 方法，指定端口号并启动web服务器
+app.listen(80, function () {
+  console.log('api server running at http://127.0.0.1')
+})
+```
+
+![image-20230320143110571](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303201431626.png)
+
+#### 8.1.2 配置 cors 跨域
+
+运行如下的命令，安装 `cors` 中间件：
+
+```
+npm i cors@2.8.5
+```
+
+![image-20230320143053544](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303201431696.png)
+
+在 `app.js` 中导入并配置 `cors` 中间件
+
+```js
+const cors = require('cors')
+
+app.use(cors())
+```
+
+#### 8.1.3 配置解析表单数据的中间件
+
+通过如下的代码，配置解析 `application/x-www-form-urlencoded` 格式的表单数据的中间件：
+
+```js
+app.use(express.urlencoded({ extended: false }))
+```
+
+#### 8.1.4 初始化路由相关的文件夹
+
+1. 在项目根目录中，新建 `router` 文件夹，用来存放所有的`路由`模块
+
+> 路由模块中，只存放客户端的请求与处理函数之间的映射关系
+
+1. 在项目根目录中，新建 `router_handler` 文件夹，用来存放所有的 `路由处理函数模块`
+
+> 路由处理函数模块中，专门负责存放每个路由对应的处理函数
+
+![image-20230320143714074](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303201437131.png)
+
+#### 8.1.5 初始化用户路由模块
+
+在 `router` 文件夹中，新建 `user.js` 文件，作为用户的路由模块，并初始化代码：
+
+```js
+const express = require('express')
+// 创建路由对象
+const router = express.Router()
+
+// 注册新用户
+router.post('/reguser', (req, res) => {
+  res.send('reguser OK')
+})
+
+// 登录
+router.post('/login', (req, res) => {
+  res.send('login OK')
+})
+
+module.exports = router
+```
+
+在 `app.js` 中，导入注册用户路由模块 ：
+
+```js
+const userRouter = require('./router/user')
+app.use('/api', userRouter)
+```
+
+启动
+
+```
+nodemon app.js
+```
+
+测试：
+
+![image-20230320150227941](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303201502011.png)
+
+
+
+#### 8.1.6 抽离用户路由模块中的处理函数
+
+目的：为了保证 `路由模块` 的纯粹性，所有的 `路由处理函数`，必须抽离到对应的 `路由处理函数模块` 中
+
+![image-20230320154855842](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303201548922.png)
+
+在 `/router_handler/user.js` 中，使用 `exports` 对象，分别向外共享如下两个 `路由处理函数`:
+
+```js
+/**
+ * 在这里定义和用户相关的路由处理函数，供 /router/user.js 模块进行调用
+ */
+
+// 注册用户的处理函数
+exports.regUser = (req, res) => {
+  res.send('reguser OK')
+}
+
+// 登录的处理函数
+exports.login = (req, res) => {
+  res.send('login OK')
+}
+```
+
+将 `/router/user.js` 中的代码修改为如下结构：
+
+```js
+const express = require('express')
+const router = express.Router()
+
+// 导入用户路由处理函数模块
+const userHandler = require('../router_handler/user')
+
+// 注册新用户
+router.post('/reguser', userHandler.regUser)
+// 登录
+router.post('/login', userHandler.login)
+
+module.exports = router
+```
+
+![image-20230320154809541](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303201548614.png)
+
+
+
+### 8.2 登录与注册
+
+#### 8.2.1数据库建表
+
+![image-20230320160040089](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303201600151.png)
+
+#### 8.2.2 安装并配置 mysql 模块
+
+```
+npm i mysql@2.18.1
+```
+
+在项目根目录中新建 `/db/index.js` 文件，在此自定义模块中创建数据库的连接对象：
+
+```js
+const mysql = require('mysql')
+
+// 创建数据库连接对象
+const db = mysql.createPool({
+  host: '127.0.0.1',
+  user: 'root',
+  password: 'admin123',
+  database: 'my_db_01',
+})
+
+// 向外共享 db 数据库连接对象
+module.exports = db
+```
+
+![image-20230321104209944](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211042116.png)
+
+![image-20230321104241786](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211042843.png)
+
+#### 8.2.3 注册功能实现
+
+修改代码，测试注册功能
+
+```js
+// 注册用户的处理函数
+exports.regUser = (req, res) => {
+   // 获取客户端提交到服务端的用户信息
+    const userinfo = req.body
+    console.info(userinfo)
+    res.send('reguser OK')
+}
+  
+// 登录的处理函数
+exports.login = (req, res) => {
+    res.send('login OK')
+}
+```
+
+![image-20230321104837313](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211048385.png)
+
+![image-20230321104850579](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211048637.png)
+
+增加校验
+
+```
+// 判断数据是否合法
+if (!userinfo.username || !userinfo.password) {
+  return res.send({ status: 1, message: '用户名或密码不能为空！' })
+}
+```
+
+![image-20230321105155947](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211051004.png)
+
+检测用户名是否被占用
+
+```js
+const db = require('../db/index')
+
+
+// 注册用户的处理函数
+exports.regUser = (req, res) => {
+
+    const userinfo = req.body
+    console.info(userinfo)
+    //对表单数据进行校验
+    // 判断数据是否合法
+    if (!userinfo.username || !userinfo.password) {
+        return res.send({ status: 1, message: '用户名或密码不能为空！' })
+    }
+
+    // 定义SQL语句
+    const sql = `select * from ev_users where username=?`
+
+    db.query(sql, [userinfo.username], function (err, results) {
+        // 执行 SQL 语句失败
+        if (err) {
+            return res.send({ status: 1, message: err.message })
+        }
+        // 用户名被占用
+        if (results.length > 0) {
+            return res.send({ status: 1, message: '用户名被占用，请更换其他用户名！' })
+        }
+        // TODO: 用户名可用，继续后续流程...
+    })
+}
+
+// 登录的处理函数
+exports.login = (req, res) => {
+    res.send('login OK')
+}
+```
+
+![image-20230321145611555](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211456628.png)
+
+测试功能：
+
+![image-20230321160756554](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211607617.png)
+
+问题记录：Cannot set headers after they are sent to the client
+
+![image-20230321160914150](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211609208.png)
+
+解决：
+
+在同一接口下同时向客户端发送了两次信息。
+
+也就是我这里使用了两次 res.send()
+
+删掉下面多余代码即可
+
+
+
+#### 8.2.4  对密码进行加密处理
+
+为了保证密码的安全性，不建议在数据库以 `明文` 的形式保存用户密码，推荐对密码进行 `加密存储`
+
+在当前项目中，使用 `bcryptjs` 对用户密码进行加密，优点：
+
+- 加密之后的密码，**无法被逆向破解**
+- 同一明文密码多次加密，得到的**加密结果各不相同**，保证了安全性
+
+安装
+
+```
+npm i bcryptjs@2.4.3
+```
+
+在 `/router_handler/user.js` 中，导入 `bcryptjs` ：
+
+```
+const bcrypt = require('bcryptjs')
+```
+
+注册用户的处理函数中，确认用户名可用之后，调用 `bcrypt.hashSync(明文密码, 随机盐的长度)` 方法，对用户的密码进行加密处理：
+
+```
+// 对用户的密码,进行 bcrype 加密，返回值是加密之后的密码字符串
+userinfo.password = bcrypt.hashSync(userinfo.password, 10)
+```
+
+![image-20230321162505676](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211625762.png)
+
+#### 8.2.5 插入新数据
+
+语句
+
+```
+const sql = 'insert into ev_users set ?'
+```
+
+插入用户
+
+```js
+db.query(sql, { username: userinfo.username, password: userinfo.password }, function (err, results) {
+  // 执行 SQL 语句失败
+  if (err) return res.send({ status: 1, message: err.message })
+  // SQL 语句执行成功，但影响行数不为 1
+  if (results.affectedRows !== 1) {
+    return res.send({ status: 1, message: '注册用户失败，请稍后再试！' })
+  }
+  // 注册成功
+  res.send({ status: 0, message: '注册成功！' })
+})
+```
+
+![image-20230321170547805](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211705887.png)
+
+
+
+![image-20230321170714032](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211707096.png)
+
+![image-20230321170725999](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211707062.png)
+
+再次插入相同的用户信息
+
+![image-20230321171418085](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211714155.png)
+
+#### 8.2.6 优化 res.send() 代码
+
+在处理函数中，需要多次调用 `res.send()` 向客户端响应 `处理失败` 的结果，为了简化代码，可以手动封装一个 res.cc() 函数
+
+在 `app.js` 中，所有路由之前，声明一个全局中间件，为 res 对象挂载一个 `res.cc()` 函数 ：
+
+```js
+// 响应数据的中间件
+app.use(function (req, res, next) {
+  // status = 0 为成功； status = 1 为失败； 默认将 status 的值设置为 1，方便处理失败的情况
+  res.cc = function (err, status = 1) {
+    res.send({
+      // 状态
+      status,
+      // 状态描述，判断 err 是 错误对象 还是 字符串
+      message: err instanceof Error ? err.message : err,
+    })
+  }
+  next()
+})
+```
+
+修改user.js
+
+```js
+const bcrypt = require('bcryptjs')
+
+const db = require('../db/index')
+
+
+// 注册用户的处理函数
+exports.regUser = (req, res) => {
+
+    const userinfo = req.body
+    console.info(userinfo)
+    //对表单数据进行校验
+    // 判断数据是否合法
+    if (!userinfo.username || !userinfo.password) {
+        return res.send({ status: 1, message: '用户名或密码不能为空！' })
+    }
+
+    // 定义SQL语句
+    const sql = `select * from ev_users where username=?`
+
+    db.query(sql, [userinfo.username], function (err, results) {
+        // 执行 SQL 语句失败
+        if (err) {
+            //return res.send({ status: 1, message: err.message })
+            return res.cc(err)
+        }
+        // 用户名被占用
+        if (results.length > 0) {
+            //return res.send({ status: 1, message: '用户名被占用，请更换其他用户名！' })
+            return res.cc('用户名被占用，请更换其他用户名！')
+        }
+
+        // 对用户的密码,进行 bcrype 加密，返回值是加密之后的密码字符串
+        userinfo.password = bcrypt.hashSync(userinfo.password, 10)
+
+        const sql = 'insert into ev_users set ?'
+
+        db.query(sql, { username: userinfo.username, password: userinfo.password }, function (err, results) {
+            // 执行 SQL 语句失败
+           // if (err) return res.send({ status: 1, message: err.message })
+           if(err) return res.cc(err)
+
+            // SQL 语句执行成功，但影响行数不为 1
+            if (results.affectedRows !== 1) {
+              //return res.send({ status: 1, message: '注册用户失败，请稍后再试！' })
+              return res.cc('注册用户失败，请稍后再试！')
+            }
+            // 注册成功
+            //res.send({ status: 0, message: '注册成功！' })
+            res.cc('注册成功！',0)
+
+          })
+
+    })
+}
+
+// 登录的处理函数
+exports.login = (req, res) => {
+    res.send('login OK')
+}
+```
+
+![image-20230321172424985](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211724048.png)
+
+![image-20230321172820495](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211728572.png)
+
+测试：
+
+![image-20230321172858444](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211728510.png)
+
+#### 8.2.7 优化表单数据验证
+
+表单验证的原则：前端验证为辅，后端验证为主，后端**永远不要相信**前端提交过来的**任何内容**
+
+在实际开发中，前后端都需要对表单的数据进行合法性的验证，而且，**后端做为数据合法性验证的最后一个关口**，在拦截非法数据方面，起到了至关重要的作用。
+
+单纯的使用 `if...else...` 的形式对数据合法性进行验证，效率低下、出错率高、维护性差。因此，推荐使用**第三方数据验证模块**，来降低出错率、提高验证的效率与可维护性，**让后端程序员把更多的精力放在核心业务逻辑的处理上**。
+
+安装 `joi` 包，为表单中携带的每个数据项，定义验证规则：
+
+```
+npm install joi
+```
+
+安装 `@escook/express-joi` 中间件，来实现自动对表单数据进行验证的功能：
+
+```
+npm i @escook/express-joi
+```
+
+新建 `/schema/user.js` 用户信息验证规则模块，并初始化代码如下：
+
+```js
+const joi = require('joi')
+
+/**
+ * string() 值必须是字符串
+ * alphanum() 值只能是包含 a-zA-Z0-9 的字符串
+ * min(length) 最小长度
+ * max(length) 最大长度
+ * required() 值是必填项，不能为 undefined
+ * pattern(正则表达式) 值必须符合正则表达式的规则
+ */
+
+// 用户名的验证规则
+const username = joi.string().alphanum().min(1).max(10).required()
+// 密码的验证规则
+const password = joi
+  .string()
+  .pattern(/^[\S]{6,12}$/)
+  .required()
+
+// 注册和登录表单的验证规则对象
+exports.reg_login_schema = {
+  // 表示需要对 req.body 中的数据进行验证
+  body: {
+    username,
+    password,
+  },
+}
+```
+
+![image-20230321173828442](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211738546.png)
+
+修改 `/router/user.js` 中的代码如下：
+
+```js
+const express = require('express')
+const router = express.Router()
+
+// 导入用户路由处理函数模块
+const userHandler = require('../router_handler/user')
+
+// 1. 导入验证表单数据的中间件
+const expressJoi = require('@escook/express-joi')
+// 2. 导入需要的验证规则对象
+const { reg_login_schema } = require('../schema/user')
+
+// 注册新用户
+// 3. 在注册新用户的路由中，声明局部中间件，对当前请求中携带的数据进行验证
+// 3.1 数据验证通过后，会把这次请求流转给后面的路由处理函数
+// 3.2 数据验证失败后，终止后续代码的执行，并抛出一个全局的 Error 错误，进入全局错误级别中间件中进行处理
+router.post('/reguser', expressJoi(reg_login_schema), userHandler.regUser)
+// 登录
+router.post('/login', userHandler.login)
+
+module.exports = router
+```
+
+在 `app.js` 的全局错误级别中间件中，捕获验证失败的错误，并把验证失败的结果响应给客户端：
+
+```js
+const joi = require('joi')
+
+// 错误中间件
+app.use(function (err, req, res, next) {
+  // 数据验证失败
+  if (err instanceof joi.ValidationError) return res.cc(err)
+  // 未知错误
+  res.cc(err)
+})
+```
+
+![image-20230321174623506](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211746581.png)
+
+测试：
+
+![image-20230321174951459](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211749533.png)
+
+
+
+#### 8.2.8 登录功能
+
+实现步骤：
+
+1. 检测表单数据是否合法
+2. 根据用户名查询用户的数据
+3. 判断用户输入的密码是否正确
+4. 生成 JWT 的 Token 字符串
+
+```
+// 登录的路由
+router.post('/login', expressJoi(reg_login_schema), userHandler.login)
+```
+
+根据用户名查询用户的数据
+
+```js
+// 登录的处理函数
+exports.login = (req, res) => {
+
+    const userinfo = req.body
+
+    const sql = `select * from ev_users where username=?`
+
+    db.query(sql, userinfo.username, function (err, results) {
+        // 执行 SQL 语句失败
+        if (err) return res.cc(err)
+        // 执行 SQL 语句成功，但是查询到数据条数不等于 1
+        if (results.length !== 1) return res.cc('登录失败！')
+        // TODO：判断用户输入的登录密码是否和数据库中的密码一致
+    })
+
+
+}
+```
+
+![image-20230321180829280](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211808354.png)
+
+判断用户输入的密码是否正确
+
+> 核心实现思路：调用 `bcrypt.compareSync(用户提交的密码, 数据库中的密码)` 方法比较密码是否一致
+
+> 返回值是布尔值（true 一致、false 不一致
+
+```js
+// 拿着用户输入的密码,和数据库中存储的密码进行对比
+const compareResult = bcrypt.compareSync(userinfo.password, results[0].password)
+
+// 如果对比的结果等于 false, 则证明用户输入的密码错误
+if (!compareResult) {
+  return res.cc('登录失败！')
+}
+
+// TODO：登录成功，生成 Token 字符串
+```
+
+![image-20230321181038787](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211810881.png)
+
+![image-20230321181311347](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211813414.png)
+
+生成 JWT 的 Token 字符串
+
+核心注意点：在生成 Token 字符串的时候，一定要剔除 **密码** 和 **头像** 的值
+
+```
+/ 剔除完毕之后，user 中只保留了用户的 id, username, nickname, email 这四个属性的值
+const user = { ...results[0], password: '', user_pic: '' }
+```
+
+首先输入
+
+```
+ const user = {... results[0]}
+ console.info(user)
+```
+
+![image-20230321183719076](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211837179.png)
+
+![image-20230321183810861](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211838960.png)
+
+再次测试
+
+![image-20230321183840296](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211838392.png)
+
+
+
+如下的命令，安装生成 Token 字符串的包：
+
+```
+npm i jsonwebtoken@8.5.1
+```
+
+在 `/router_handler/user.js` 模块的头部区域，导入 `jsonwebtoken` 包：
+
+```
+// 用这个包来生成 Token 字符串
+const jwt = require('jsonwebtoken')
+```
+
+![image-20230321183949338](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211839419.png)
+
+创建 `config.js` 文件，并向外共享 **加密** 和 **还原** Token 的 `jwtSecretKey` 字符串：
+
+```
+module.exports = {
+  jwtSecretKey: 'Bruce',
+}
+```
+
+将用户信息对象加密成 Token 字符串
+
+```js
+// 导入配置文件
+const config = require('../config')
+
+// 生成 Token 字符串
+const tokenStr = jwt.sign(user, config.jwtSecretKey, {
+  expiresIn: '10h', // token 有效期为 10 个小时
+})
+```
+
+![image-20230321194902694](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211949778.png)
+
+![image-20230321194952273](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211949372.png)
+
+优化
+
+![image-20230321195204188](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211952271.png)
+
+![image-20230321195821861](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211958952.png)
+
+测试结果：
+
+![image-20230321195929943](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303211959057.png)
+
+将生成的 Token 字符串响应给客户端：
+
+```js
+res.send({
+  status: 0,
+  message: '登录成功！',
+  // 为了方便客户端使用 Token，在服务器端直接拼接上 Bearer 的前缀
+  token: 'Bearer ' + tokenStr,
+})
+```
+
+![image-20230321200506751](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212005881.png)
+
+![image-20230321200456874](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212004970.png)
+
+#### 8.2.9  配置解析 Token 的中间件
+
+运行如下的命令，安装解析 Token 的中间件
+
+```
+npm i express-jwt@5.3.3
+```
+
+在 `app.js` 中注册路由之前，配置解析 Token 的中间件：
+
+```js
+// 导入配置文件
+const config = require('./config')
+
+// 解析 token 的中间件
+const expressJWT = require('express-jwt')
+
+// 使用 .unless({ path: [/^\/api\//] }) 指定哪些接口不需要进行 Token 的身份认证
+app.use(expressJWT({ secret: config.jwtSecretKey }).unless({ path: [/^\/api\//] }))
+```
+
+![image-20230321202048570](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212020662.png)
+
+在 `app.js` 中的 `错误级别中间件` 里面，捕获并处理 Token 认证失败后的错误：
+
+```js
+// 错误中间件
+app.use(function (err, req, res, next) {
+  // 省略其它代码...
+
+  // 捕获身份认证失败的错误
+  if (err.name === 'UnauthorizedError') return res.cc('身份认证失败！')
+
+  // 未知错误...
+})
+```
+
+![image-20230321203026581](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212030667.png)
+
+测试，使用http://127.0.0.1/my/testabc访问
+
+![image-20230321203136074](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212031170.png)
+
+
+
+### 8.3 个人中心
+
+步骤如下：
+
+1. 初始化 **路由** 模块
+2. 初始化 **路由处理函数** 模块
+3. 获取用户的基本信息
+
+#### 8.3.1 查询个人信息
+
+创建 `/router/userinfo.js` 路由模块，并初始化如下的代码结构：
+
+```js
+// 导入 express
+const express = require('express')
+// 创建路由对象
+const router = express.Router()
+
+// 获取用户的基本信息
+router.get('/userinfo', (req, res) => {
+  res.send('ok')
+})
+
+// 向外共享路由对象
+module.exports = router
+```
+
+![image-20230321203505227](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212035325.png)
+
+在 `app.js` 中导入并使用个人中心的路由模块：
+
+```js
+// 导入并使用用户信息路由模块
+const userinfoRouter = require('./router/userinfo')
+// 注意：以 /my 开头的接口，都是有权限的接口，需要进行 Token 身份认证
+app.use('/my', userinfoRouter)
+```
+
+测试http://127.0.0.1/my/userinfo
+
+![image-20230321205153217](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212051317.png)
+
+初始化路由处理函数模块
+
+创建 `/router/userinfo.js` 路由模块，并初始化如下的代码结构：
+
+```js
+// 获取用户基本信息的处理函数
+exports.getUserInfo = (req, res) => {
+  res.send('ok')
+}
+```
+
+修改 `/router/userinfo.js` 中的代码如下
+
+```js
+const express = require('express')
+const router = express.Router()
+
+// 导入用户信息的处理函数模块
+const userinfo_handler = require('../router_handler/userinfo')
+
+// 获取用户的基本信息
+router.get('/userinfo', userinfo_handler.getUserInfo)
+
+module.exports = router
+```
+
+![image-20230321213341308](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212133399.png)
+
+获取用户的基本信息
+
+在 `/router_handler/userinfo.js` 头部导入数据库操作模块：
+
+```
+// 导入数据库操作模块
+const db = require('../db/index')
+```
+
+定义SQL语句
+
+```
+const sql = `select id, username, nickname, email, user_pic from ev_users where id=?`
+```
+
+调用 `db.query()` 执行 SQL 语句：
+
+```js
+// 注意：req 对象上的 user 属性，是 Token 解析成功，express-jwt 中间件帮我们挂载上去的
+db.query(sql, req.user.id, (err, results) => {
+  // 1. 执行 SQL 语句失败
+  if (err) return res.cc(err)
+
+  // 2. 执行 SQL 语句成功，但是查询到的数据条数不等于 1
+  if (results.length !== 1) return res.cc('获取用户信息失败！')
+
+  // 3. 将用户信息响应给客户端
+  res.send({
+    status: 0,
+    message: '获取用户基本信息成功！',
+    data: results[0],
+  })
+})
+```
+
+![image-20230321213814395](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212138497.png)
+
+测试：
+
+![image-20230321213747196](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212137293.png)
+
+
+
+#### 8.3.2 更新个人信息
+
+实现步骤：
+
+1. 定义路由和处理函数
+2. 验证表单数据
+3. 实现更新用户基本信息的功能
+
+增加路由
+
+在 `/router/userinfo.js` 模块中，新增 `更新用户基本信息` 的路由：
+
+```js
+// 更新用户的基本信息
+router.post('/userinfo', userinfo_handler.updateUserInfo)
+```
+
+在 `/router_handler/userinfo.js` 模块中，定义并向外共享 `更新用户基本信息` 的路由处理函数：
+
+```js
+// 更新用户基本信息的处理函数
+exports.updateUserInfo = (req, res) => {
+  res.send('ok')
+}
+```
+
+验证表单数据
+
+在 `/schema/user.js` 验证规则模块中，定义 `id`，`nickname`，`email` 的验证规则如下：
+
+```
+// 定义 id, nickname, emial 的验证规则
+const id = joi.number().integer().min(1).required()
+const nickname = joi.string().required()
+const email = joi.string().email().required()
+```
+
+并使用 `exports` 向外共享如下的 `验证规则对象`：
+
+```
+// 验证规则对象 - 更新用户基本信息
+exports.update_userinfo_schema = {
+  body: {
+    id,
+    nickname,
+    email,
+  },
+}
+```
+
+![image-20230321214953174](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212149271.png)
+
+在 `/router/userinfo.js` 模块中，导入验证数据合法性的中间件：
+
+```
+// 导入验证数据合法性的中间件
+const expressJoi = require('@escook/express-joi')
+```
+
+在 `/router/userinfo.js` 模块中，导入需要的验证规则对象：
+
+```
+// 导入需要的验证规则对象
+const { update_userinfo_schema } = require('../schema/user')
+```
+
+在 `/router/userinfo.js` 模块中，修改 `更新用户的基本信息` 的路由如下：
+
+```
+// 更新用户的基本信息
+router.post('/userinfo', expressJoi(update_userinfo_schema), userinfo_handler.updateUserInfo)
+```
+
+![image-20230321215228790](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212152899.png)
+
+实现更新用户基本信息的功能
+
+```js
+// 更新用户基本信息的处理函数
+exports.updateUserInfo = (req, res) => {
+    const sql = `update ev_users set ? where id=?`
+
+    db.query(sql, [req.body, req.body.id], (err, results) => {
+        // 执行 SQL 语句失败
+        if (err) return res.cc(err)
+      
+        // 执行 SQL 语句成功，但影响行数不为 1
+        if (results.affectedRows !== 1) return res.cc('修改用户基本信息失败！')
+      
+        // 修改用户信息成功
+        return res.cc('修改用户基本信息成功！', 0)
+      })
+}
+```
+
+![image-20230321215437710](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212154817.png)
+
+测试结果：
+
+![image-20230321215740336](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212157429.png)
+
+![image-20230321215756683](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212157788.png)
+
+![image-20230321215811310](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212158432.png)
+
+#### 8.3.3 重制密码
+
+步骤：
+
+1. 定义路由和处理函数
+2. 验证表单数据
+3. 实现重置密码的功能
+
+在 `/router/userinfo.js` 模块中，新增 `重置密码` 的路由：
+
+```js
+// 重置密码的路由
+router.post('/updatepwd', userinfo_handler.updatePassword)
+```
+
+在 `/router_handler/userinfo.js` 模块中，定义并向外共享 `重置密码` 的路由处理函数：
+
+```js
+// 重置密码的处理函数
+exports.updatePassword = (req, res) => {
+  res.send('ok')
+}
+```
+
+验证表单数据
+
+核心验证思路：旧密码与新密码，必须符合密码的验证规则，并且新密码不能与旧密码一致！
+
+在 `/schema/user.js` 模块中，使用 `exports` 向外共享如下的 `验证规则对象`：
+
+```js
+// 验证规则对象 - 重置密码
+exports.update_password_schema = {
+  body: {
+    // 使用 password 这个规则，验证 req.body.oldPwd 的值
+    oldPwd: password,
+    // 使用 joi.not(joi.ref('oldPwd')).concat(password) 规则，验证 req.body.newPwd 的值
+    // 解读：
+    // 1. joi.ref('oldPwd') 表示 newPwd 的值必须和 oldPwd 的值保持一致
+    // 2. joi.not(joi.ref('oldPwd')) 表示 newPwd 的值不能等于 oldPwd 的值
+    // 3. .concat() 用于合并 joi.not(joi.ref('oldPwd')) 和 password 这两条验证规则
+    newPwd: joi.not(joi.ref('oldPwd')).concat(password),
+  },
+}
+```
+
+在 `/router/userinfo.js` 模块中，导入需要的验证规则对象：
+
+```js
+// 导入需要的验证规则对象
+const { update_userinfo_schema, update_password_schema } = require('../schema/user')
+```
+
+并在 `重置密码的路由` 中，使用 `update_password_schema` 规则验证表单的数据，示例代码如下
+
+```js
+router.post('/updatepwd', expressJoi(update_password_schema), userinfo_handler.updatePassword)
+```
+
+实现重置密码的功能
+
+根据 `id` 查询用户是否存在：
+
+```js
+// 定义根据 id 查询用户数据的 SQL 语句
+const sql = `select * from ev_users where id=?`
+
+// 执行 SQL 语句查询用户是否存在
+db.query(sql, req.user.id, (err, results) => {
+  // 执行 SQL 语句失败
+  if (err) return res.cc(err)
+
+  // 检查指定 id 的用户是否存在
+  if (results.length !== 1) return res.cc('用户不存在！')
+
+  // TODO：判断提交的旧密码是否正确
+})
+```
+
+判断提交的 **旧密码** 是否正确：
+
+```js
+// 在头部区域导入 bcryptjs 后，
+// 即可使用 bcrypt.compareSync(提交的密码，数据库中的密码) 方法验证密码是否正确
+// compareSync() 函数的返回值为布尔值，true 表示密码正确，false 表示密码错误
+const bcrypt = require('bcryptjs')
+
+// 判断提交的旧密码是否正确
+const compareResult = bcrypt.compareSync(req.body.oldPwd, results[0].password)
+if (!compareResult) return res.cc('原密码错误！')
+```
+
+对新密码进行 `bcrypt` 加密之后，更新到数据库中：
+
+```js
+// 定义更新用户密码的 SQL 语句
+const sql = `update ev_users set password=? where id=?`
+
+// 对新密码进行 bcrypt 加密处理
+const newPwd = bcrypt.hashSync(req.body.newPwd, 10)
+
+// 执行 SQL 语句，根据 id 更新用户的密码
+db.query(sql, [newPwd, req.user.id], (err, results) => {
+  // SQL 语句执行失败
+  if (err) return res.cc(err)
+
+  // SQL 语句执行成功，但是影响行数不等于 1
+  if (results.affectedRows !== 1) return res.cc('更新密码失败！')
+
+  // 更新密码成功
+  res.cc('更新密码成功！', 0)
+})
+```
+
+测试结果：
+
+![image-20230321222316978](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212223080.png)
+
+![image-20230321222342355](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212223459.png)
+
+
+
+#### 8.3.4更新用户头像
+
+定义路由和处理函数
+
+ `/router/userinfo.js` 模块中，新增 `更新用户头像` 的路由
+
+```
+// 更新用户头像的路由
+router.post('/update/avatar', userinfo_handler.updateAvatar)
+```
+
+在 `/router_handler/userinfo.js` 模块中，定义并向外共享 `更新用户头像` 的路由处理函数：
+
+```js
+// 更新用户头像的处理函数
+exports.updateAvatar = (req, res) => {
+  res.send('ok')
+}
+```
+
+在 `/schema/user.js` 验证规则模块中，定义 `avatar` 的验证规则如下：
+
+```js
+// dataUri() 指的是如下格式的字符串数据：
+// data:image/png;base64,VE9PTUFOWVNFQ1JFVFM=
+const avatar = joi.string().dataUri().required()
+```
+
+```js
+// 验证规则对象 - 更新头像
+exports.update_avatar_schema = {
+  body: {
+    avatar,
+  },
+}
+```
+
+在 `/router/userinfo.js` 模块中，导入需要的验证规则对象：
+
+```js
+const { update_avatar_schema } = require('../schema/user')
+router.post('/update/avatar', expressJoi(update_avatar_schema), userinfo_handler.updateAvatar)
+```
+
+实现更新用户头像的功能
+
+```js
+const sql = 'update ev_users set user_pic=? where id=?'
+
+db.query(sql, [req.body.avatar, req.user.id], (err, results) => {
+  // 执行 SQL 语句失败
+  if (err) return res.cc(err)
+
+  // 执行 SQL 语句成功，但是影响行数不等于 1
+  if (results.affectedRows !== 1) return res.cc('更新头像失败！')
+
+  // 更新用户头像成功
+  return res.cc('更新头像成功！', 0)
+})
+```
+
+![image-20230321223536978](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212235083.png)
+
+测试结果
+
+![image-20230321223509189](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212235292.png)
+
+![image-20230321223524138](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303212235232.png)
+
+### 8.4 文章分类列表管理
+
+#### 8.4.1 新建数据库
+
+![image-20230322095107571](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303220951754.png)
+
+
+
+#### 8.4.2 查询列表
+
+步骤
+
+1. 初始化路由模块
+2. 初始化路由处理函数模块
+3. 获取文章分类列表数据
+
+初始化路由模块
+
+创建 `/router/.js` 路由模块，并初始化如下的代码结构：
+
+```js
+// 导入 express
+const express = require('express')
+// 创建路由对象
+const router = express.Router()
+
+// 获取文章分类的列表数据
+router.get('/cates', (req, res) => {
+  res.send('ok')
+})
+
+// 向外共享路由对象
+module.exports = router
+```
+
+在 `app.js` 中导入并使用文章分类的路由模块：
+
+```js
+// 导入并使用文章分类路由模块
+const artCateRouter = require('./router/artcate')
+// 为文章分类的路由挂载统一的访问前缀 /my/article
+app.use('/my/article', artCateRouter)
+```
+
+初始化路由处理函数模块
+
+创建 `/router_handler/artcate.js` 路由处理函数模块，并初始化如下的代码结构
+
+```js
+// 获取文章分类列表数据的处理函数
+exports.getArticleCates = (req, res) => {
+  res.send('ok')
+}
+```
+
+修改 `/router/artcate.js` 中的代码如下：
+
+```js
+const express = require('express')
+const router = express.Router()
+
+// 导入文章分类的路由处理函数模块
+const artcate_handler = require('../router_handler/artcate')
+
+// 获取文章分类的列表数据
+router.get('/cates', artcate_handler.getArticleCates)
+
+module.exports = router
+```
+
+获取文章分类列表数据
+
+在 `/router_handler/artcate.js` 头部导入数据库操作模块：
+
+```js
+// 导入数据库操作模块
+const db = require('../db/index')
+```
+
+SQL
+
+```js
+// 根据分类的状态，获取所有未被删除的分类列表数据
+// is_delete 为 0 表示没有被 标记为删除 的数据
+const sql = 'select * from ev_article_cate where is_delete=0 order by id asc'
+```
+
+调用 `db.query()` 执行 SQL 语句：
+
+```js
+db.query(sql, (err, results) => {
+  // 1. 执行 SQL 语句失败
+  if (err) return res.cc(err)
+
+  // 2. 执行 SQL 语句成功
+  res.send({
+    status: 0,
+    message: '获取文章分类列表成功！',
+    data: results,
+  })
+})
+```
+
+![image-20230322105020911](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303221050004.png)
+
+#### 8.4.3 根据ID删除
+
+步骤：
+
+1. 定义路由和处理函数
+2. 验证表单数据
+3. 实现删除文章分类的功能
+
+路由和处理函数
+
+在 `/router/artcate.js` 模块中，添加 `删除文章分类` 的路由：
+
+```js
+// 删除文章分类的路由
+router.get('/deletecate/:id', artcate_handler.deleteCateById)
+```
+
+在 `/router_handler/artcate.js` 模块中，定义并向外共享 `删除文章分类` 的路由处理函数：
+
+```js
+// 删除文章分类的处理函数
+exports.deleteCateById = (req, res) => {
+  res.send('ok')
+}
+```
+
+验证表单数据
+
+在 `/schema/artcate.js` 验证规则模块中，定义 id 的验证规则如下：
+
+```js
+// 定义 分类Id 的校验规则
+const id = joi.number().integer().min(1).required()
+
+// 校验规则对象 - 删除分类
+exports.delete_cate_schema = {
+  params: {
+    id,
+  },
+}
+```
+
+在 `/router/artcate.js` 模块中，导入需要的验证规则对象，并在路由中使用：
+
+```js
+//1 导入验证数据的中间件
+const expressJoi = require('@escook/express-joi')
+// 导入删除分类的验证规则对象
+const { delete_cate_schema } = require('../schema/artcate')
+
+// 删除文章分类的路由
+router.get('/deletecate/:id', expressJoi(delete_cate_schema), artcate_handler.deleteCateById)
+```
+
+实现删除文章分类的功能
+
+```
+const sql = `update ev_article_cate set is_delete=1 where id=?`
+```
+
+```js
+db.query(sql, req.params.id, (err, results) => {
+  // 执行 SQL 语句失败
+  if (err) return res.cc(err)
+
+  // SQL 语句执行成功，但是影响行数不等于 1
+  if (results.affectedRows !== 1) return res.cc('删除文章分类失败！')
+
+  // 删除文章分类成功
+  res.cc('删除文章分类成功！', 0)
+})
+```
+
+测试http://127.0.0.1/my/article/deletecate/2
+
+![image-20230322111323890](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303221113973.png)
+
+
+
+### 8.5 生成接口文档
+
+官方网址：https://apidocjs.com/
+
+![image-20230322140835561](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303221408667.png)
+
+#### 8.5.1 全局安装
+
+```
+npm install apidoc -g
+```
+
+#### 8.5.2 修改 package.json文件
+
+```json
+  "apidoc": {  
+    "title": "接口文档", 
+    "url": "http://localhost:3000" 
+  }
+```
+
+![image-20230322140000000](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303221400081.png)
+
+添加apidoc.json
+
+```json
+{
+    "name": "企业管理系统接口文档",
+    "version": "1.0.0",
+    "description": "关于CMS系统的接口",
+    "title": "企业管理系统接口文档",
+    "url" : "http://127.0.0.1"
+  }
+```
+
+![image-20230322140632721](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303221406823.png)
+
+#### 8.5.3 给接口添加注释
+
+```js
+/**
+* @api {post} /api/reguser 用户注册
+* @apiDescription 用户注册
+* @apiGroup 用户模块
+* @apiParam {String} username  用户名 
+* @apiParam {String} password 密码 
+* @apiVersion 1.0.0
+*/
+router.post('/reguser', expressJoi(reg_login_schema),userHandler.regUser)
+
+/**
+* @api {post} /api/User/login 用户登录
+* @apiDescription 用户登录
+* @apiGroup 用户模块
+* @apiParam {String} username  用户名 
+* @apiParam {String} password 密码 
+* @apiVersion 1.0.0
+*/
+router.post('/login',  expressJoi(reg_login_schema), userHandler.login)
+```
+
+![image-20230322140201618](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303221402698.png)
+
+
+
+#### 8.5.4 生成apidoc
+
+```
+apidoc -i router/ -o public/apidoc/
+```
+
+测试效果：
+
+![image-20230322140459341](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303221404447.png)
