@@ -1,11 +1,5 @@
 # Nodejs
 
-参考资料：
-
-https://blog.csdn.net/m0_52316372/article/details/124759435?spm=1001.2014.3001.5502
-
-https://brucecai55520.gitee.io/bruceblog/notes/nodejs/node.html#%E5%88%9D%E8%AF%86-nodejs
-
 ## 1 初识 Nodejs
 
 ![image-20230310153202072](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202303101532116.png)
