@@ -41,8 +41,11 @@ vi /usr/local/nexus/conf/nexus.properties
 
 ### 2.3 配置自启动
 
+```
 vi /etc/init.d/nexus
+```
 
+```
 #!/bin/bash    
 #chkconfig:2345 20 90    
 #description:nexus    
@@ -57,6 +60,7 @@ case $1 in
         console ) su root $NEXUS_HOME/bin/nexus console ;;          
         *) echo "require console | start | stop | restart | status | dump " ;;    
 esac
+```
 
 ![image-20221222165355392](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202212221654476.png)
 
@@ -70,6 +74,7 @@ chmod 744 /etc/init.d/nexus
 
 执行以下命令进行启动、停止 和 重启nexus服务
 
+```
 #启动
 service nexus start
 
@@ -81,9 +86,11 @@ service nexus restart
 
 #查看nexus的状态
 service nexus status
+```
 
 **设置开机自启动**
 
+```
 #向chkconfig添加 nexus 服务的管理
 chkconfig --add nexus
 
@@ -95,6 +102,9 @@ chkconfig nexus off
 
 #删除nexus服务在chkconfig上的管理
 chkconfig –del nexus
+```
+
+
 
 ## 3 配置
 
@@ -128,6 +138,7 @@ chkconfig –del nexus
 
 1. 找到servers节点，添加如下两个子节点：
 
+```xml
 <server>   
 	<id>bolingcavalry-nexus-releases</id>   
     <username>deployment</username>   
@@ -138,10 +149,12 @@ chkconfig –del nexus
     <username>deployment</username>   
     <password>admin123</password>   
 </server>
+```
 
 以上配置了两个server的用户名和密码信息 ，接下来需要身份验证的时候，都可以通过bolingcavalry-nexus-releases和bolingcavalry-nexus-snapshots这两个id来使用对应的用户名和密码；
 2. 找到mirrors节点，添加如下两个子节点：
 
+```xml
   <mirror>     
   	<id>bolingcavalry-nexus-releases</id>     
       <mirrorOf>*</mirrorOf>     
@@ -151,10 +164,12 @@ chkconfig –del nexus
       <id>bolingcavalry-nexus-snapshots</id>     
       <mirrorOf>*</mirrorOf>     
       <url>http://192.168.119.155:8081/nexus/content/groups/public-snapshots</url>     
-  </mirror>      
+  </mirror>     
+```
 
 3.  找到profile节点下面的repositories节点，添加如下两个子节点：
 
+```xml
   <repository>  
     <id>bolingcavalry-nexus-releases</id>  
     <url>http://nexus-releases</url>  
@@ -167,11 +182,13 @@ chkconfig –del nexus
     <releases><enabled>true</enabled></releases>  
      <snapshots><enabled>true</enabled></snapshots>  
   </repository>
+```
 
   以上配置release和snapshots的部署时，使用哪个仓库和server的配置信息；
 
   4. 找到profile节点下面的pluginRepositories节点，添加如下两个子节点：
 
+     ```xml
      <pluginRepository>  
      	<id>bolingcavalry-nexus-releases</id>  
          <url>http://nexus-releases</url>  
@@ -184,21 +201,25 @@ chkconfig –del nexus
      	<releases><enabled>true</enabled></releases>  
      	<snapshots><enabled>true</enabled></snapshots>  
      </pluginRepository>
+     ```
 
      以上配置release和snapshots的部署时的插件仓库配置；
 
   5. 然后创建maven项目。POM文件加入
 
-     <distributionManagement>
-             <repository>
-                 <id>bolingcavalry-nexus-releases</id>
-                 <name>Nexus Release Repository</name>
-                 <url>http://192.168.133.102:8081/nexus/content/repositories/releases</url>
-             </repository>
-             <snapshotRepository>
-                 <id>bolingcavalry-nexus-snapshots</id>
-                 <name>Nexus Snapshot Repository</name>
-                 <url>http://192.168.133.102:8081/nexus/content/repositories/snapshots</url>
-             </snapshotRepository>
-         </distributionManagement>
+
+```xml
+<distributionManagement>
+        <repository>
+            <id>bolingcavalry-nexus-releases</id>
+            <name>Nexus Release Repository</name>
+            <url>http://192.168.133.102:8081/nexus/content/repositories/releases</url>
+        </repository>
+        <snapshotRepository>
+            <id>bolingcavalry-nexus-snapshots</id>
+            <name>Nexus Snapshot Repository</name>
+            <url>http://192.168.133.102:8081/nexus/content/repositories/snapshots</url>
+        </snapshotRepository>
+    </distributionManagement>
+```
 

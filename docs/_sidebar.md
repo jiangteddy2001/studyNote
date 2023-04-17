@@ -9,7 +9,6 @@
     * [JVM](md/JVM.md)
 * 前端
     * [Nodejs](md/Nodejs.md)
-	* [Recat](md/Recat.md)
 * 移动端
     * [Android](md/Android.md)	
 * Mybatis
@@ -17,11 +16,10 @@
 * Spring
     * [Actuator](md/Actuator.md)
     * [OAuth2](md/OAuth2.md)	
-* 微服务
+* 分布式
 	* [微服务](md/微服务.md)
 	* [Dubbo](md/Dubbo.md)
 	* [ZooKeeper](md/ZooKeeper.md)
-	* [SpringCloud](md/SpringCloud.md)
 * 数据库
     * [Mysql](md/Mysql.md)
 	* [PostgreSQL](md/PostgreSQL.md)
