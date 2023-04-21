@@ -4653,7 +4653,7 @@ public abstract class BookDatabase extends RoomDatabase {
 然后在build.gradle指定目录
 
 ```
-javaCompileOptions:{
+javaCompileOptions {
             annotationProcessorOptions {
                 arguments = ["room.schemaLocation": "$projectDir/schemas".toString()]
             }
@@ -4779,21 +4779,1378 @@ BookDao bookDao = MyApplication.getInstance().getBookDB().bookDao();
 
 ![image-20230411172914656](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304111729745.png)
 
+### 8.1 Server端代码编写
+
+创建一个Content Provider
+
+![image-20230412175624267](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304121756441.png)
+
+![image-20230412175718684](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304121757757.png)
+
+把刚才xxx改成完整类名
+
+![image-20230412180639543](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304121806602.png)
+
+
+
+
+
+### 8.2 Client端代码
+
+利用ContentProvider只实现服务端App的数据封装，如果客户端App想访问对方的内部数据，就要通过内容解析器ContentResolver访问。
+
+![image-20230413143721765](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304131437890.png)
+
+```
+
+```
+
+出于安全考虑，Android11需要事先声明需要访问的其他应用
+
+在AndroidManifest.xml中添加如下：
+
+```
+   <queries>
+        <!--服务端应用包名 -->
+        <package android:name="com.jiang.chapter07_server.provider"/>
+
+        <!--或者直接指定authorities-->
+        <!-- <provider android:authorities="com.jiang.chapter07_server.provider.UserInfoProvider"/>   -->
+    </queries>
+```
+
+测试，先发布server,再发布client
+
+![image-20230414104814110](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304141048176.png)
+
+插入数据成功，读取成功
+
+![image-20230414112443291](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304141124352.png)
+
+注意出现异常
+
+```
+java.lang.IllegalArgumentException: Unknown URL content://
+```
+
+Android高版本收紧了权限以防止程序随便访问其他程序的文件。解决办法：
+
+```
+<uses-permission android:name="DatabaseProvider._READ_PERMISSION" />
+<uses-permission android:name="DatabaseProvider._WRITE_PERMISSION" />
+```
+
+![image-20230414112522939](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304141125005.png)
+
+删除操作，UserInfoProvider
+
+```
+ private static final UriMatcher URI_MATCHER = new UriMatcher(UriMatcher.NO_MATCH);
+
+    private static final int USERS = 1;
+    private static final int USER = 2;
+
+    static {
+        URI_MATCHER.addURI(UserInfoContent.AUTHORITIES,"/user",USERS);
+        URI_MATCHER.addURI(UserInfoContent.AUTHORITIES,"/user/#",USER);
+    }
+    
+    
+        @Override
+    public int delete(Uri uri, String selection, String[] selectionArgs) {
+        int count = 0;
+        switch (URI_MATCHER.match(uri)) {
+            //这种是uri不带参数："content://com.jiang.chapter07_server.UserInfoProvider/user"
+            //删除多行
+            case USERS:
+                 // 获取SQLite数据库的写连接
+                SQLiteDatabase db1 = userDBHelper.getWritableDatabase();
+                // 执行SQLite的删除操作，并返回删除记录的数目
+                count = db1.delete(UserDBHelper.TABLE_NAME, selection, selectionArgs);
+                db1.close();
+                break;
+            //这种是uri带参数："content://com.jiang.chapter07_server.UserInfoProvider/user/2"
+            //删除单行
+            case USER:
+                String id = uri.getLastPathSegment();
+                SQLiteDatabase db2 = userDBHelper.getWritableDatabase();
+                count = db2.delete(UserDBHelper.TABLE_NAME, "_id = ?", new String[]{id});
+                db2.close();
+                break;
+        }
+        return count;
+    }
+```
+
+```
+  case R.id.btn_delete:
+                // content://com.jiang.chapter07_server.provider.UserInfoProvider/user/2
+                Uri uri = ContentUris.withAppendedId(UserInfoContent.CONTENT_URI, 2);
+                int count = getContentResolver().delete(uri, null, null);
+                if(count >0 ){
+                    ToastUtil.show(this,"删除成功");
+                }
+
+                break;
+```
+
+测试删除，现在有2条数据
+
+点击删除按钮
+
+![](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304141228568.png)
+
+也可以根据条件删除
+
+```
+int count = getContentResolver().delete(UserInfoContent.CONTENT_URI,"name = ?",new String[]{"Jiang"});
+```
+
+
+
+### 8.3 使用内容组件获取通讯信息
+
+![image-20230414142940669](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304141429949.png)
+
+#### 8.3.1 动态申请权限
+
+动态申请权限有三个步骤：
+
+1 检查App是否开启了指定权限：
+
+​    调用ContextCompat的checkSelfPermission方法
+
+2 请求系统弹窗，以便用户选择是否开启权限：
+
+​    调用ActivityCompat的requestPermissions方法，即可命令系统自动弹出权限申请窗口。
+
+3 判断用户的权限选择结果，是开启还是拒绝：
+
+​    重写活动页面的权限请求回调方法onRequestPermissionsResult，在该方法内部处理用户的权限选择结果
+
+
+
+
+动态申请权限有两种方式：饿汉式 和 懒汉式。
+
+饿汉式
+
+工具类
+
+```
+public class PermissionUtil {
+
+    //检查权限，返回true表示完全启用权限，返回false则表示为完全启用所有权限
+    public static boolean checkPermission(Activity activity, String[] permissions, int requestCode){
+        //Android6.0之后采取动态权限管理
+        if(Build.VERSION.SDK_INT > Build.VERSION_CODES.M){
+            int check = PackageManager.PERMISSION_GRANTED;  // 0
+
+            for (String permission : permissions) {
+                check = ContextCompat.checkSelfPermission(activity, permission);
+                if(check != PackageManager.PERMISSION_GRANTED){
+                    break;
+                }
+            }
+
+            //如果未开启该权限，则请求系统弹窗，好让用户选择是否开启权限
+            if(check != PackageManager.PERMISSION_GRANTED){
+                //请求权限
+                ActivityCompat.requestPermissions(activity, permissions, requestCode);
+                return false;
+            }
+              return true;
+        }
+        return  false;
+    }
+
+    //检查权限数组，返回true表示都已经授权
+    public static boolean checkGrant(int[] grantResults) {
+        if(grantResults != null){
+            for (int grant : grantResults) {
+                if(grant != PackageManager.PERMISSION_GRANTED){
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+}
+```
+
+```
+public class PermissionLazyActivity extends AppCompatActivity implements View.OnClickListener {
+
+    //通讯录的读写权限
+    private static final String[] PERMISSION_CONTACT = {
+            Manifest.permission.READ_CONTACTS,
+            Manifest.permission.WRITE_CONTACTS
+    };
+
+    //短信的读写权限
+    private static final String[] PERMISSION_SMS = {
+            Manifest.permission.SEND_SMS,
+            Manifest.permission.RECEIVE_SMS
+    };
+
+    private static final int REQUEST_CODE_CONTACTS = 1;
+    private static final int REQUEST_CODE_SMS = 2;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_permission_lazy);
+
+        findViewById(R.id.btn_contact).setOnClickListener(this);
+        findViewById(R.id.btn_sms).setOnClickListener(this);
+    }
+
+    @Override
+    public void onClick(View view) {
+        switch (view.getId()) {
+            case R.id.btn_contact:
+                PermissionUtil.checkPermission(PermissionLazyActivity.this, PERMISSION_CONTACT, REQUEST_CODE_CONTACTS);
+                break;
+            case R.id.btn_sms:
+                PermissionUtil.checkPermission(PermissionLazyActivity.this, PERMISSION_SMS, REQUEST_CODE_SMS);
+                break;
+        }
+
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        switch (requestCode){
+            case REQUEST_CODE_CONTACTS:
+                if(PermissionUtil.checkGrant(grantResults)){
+                    Log.d("ning", "通讯录获取成功");
+                }else{
+                    Log.d("ning", "通讯录获取失败");
+                    //跳转到设置界面
+                    jumpToSettings();
+                }
+                break;
+            case REQUEST_CODE_SMS:
+                if(PermissionUtil.checkGrant(grantResults)){
+                    Log.d("ning", "短信权限获取成功");
+                }else{
+                    Log.d("ning", "短信权限获取失败");
+                    //跳转到设置界面
+                    jumpToSettings();
+                }
+                break;
+        }
+    }
+
+    //跳转到设置界面
+    private void jumpToSettings(){
+        Intent intent = new Intent();
+        intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        intent.setData(Uri.fromParts("package", getPackageName(), null));
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+    }
+}public class PermissionLazyActivity extends AppCompatActivity implements View.OnClickListener {
+
+    //通讯录的读写权限
+    private static final String[] PERMISSION_CONTACT = {
+            Manifest.permission.READ_CONTACTS,
+            Manifest.permission.WRITE_CONTACTS
+    };
+
+    //短信的读写权限
+    private static final String[] PERMISSION_SMS = {
+            Manifest.permission.SEND_SMS,
+            Manifest.permission.RECEIVE_SMS
+    };
+
+    private static final int REQUEST_CODE_CONTACTS = 1;
+    private static final int REQUEST_CODE_SMS = 2;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_permission_lazy);
+
+        findViewById(R.id.btn_contact).setOnClickListener(this);
+        findViewById(R.id.btn_sms).setOnClickListener(this);
+    }
+
+    @Override
+    public void onClick(View view) {
+        switch (view.getId()) {
+            case R.id.btn_contact:
+                PermissionUtil.checkPermission(PermissionLazyActivity.this, PERMISSION_CONTACT, REQUEST_CODE_CONTACTS);
+                break;
+            case R.id.btn_sms:
+                PermissionUtil.checkPermission(PermissionLazyActivity.this, PERMISSION_SMS, REQUEST_CODE_SMS);
+                break;
+        }
+
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        switch (requestCode){
+            case REQUEST_CODE_CONTACTS:
+                if(PermissionUtil.checkGrant(grantResults)){
+                    Log.d("ning", "通讯录获取成功");
+                }else{
+                    Log.d("ning", "通讯录获取失败");
+                    //跳转到设置界面
+                    jumpToSettings();
+                }
+                break;
+            case REQUEST_CODE_SMS:
+                if(PermissionUtil.checkGrant(grantResults)){
+                    Log.d("ning", "短信权限获取成功");
+                }else{
+                    Log.d("ning", "短信权限获取失败");
+                    //跳转到设置界面
+                    jumpToSettings();
+                }
+                break;
+        }
+    }
+
+    //跳转到设置界面
+    private void jumpToSettings(){
+        Intent intent = new Intent();
+        intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        intent.setData(Uri.fromParts("package", getPackageName(), null));
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+    }
+}
+```
+
+另外还需要在AndroidManifest.xml中配置：（在低版本中只需要配置这些信息即可，高版本就需要上面的动态申请权限）
+
+```xml
+<!--    开启通讯录权限-->
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
+    <uses-permission android:name="android.permission.WRITE_CONTACTS"/>
+
+<!--    开启短信收发权限-->
+    <uses-permission android:name="android.permission.SEND_SMS"/>
+    <uses-permission android:name="android.permission.RECEIVE_SMS"/>
+
+```
+
+![image-20230414152823569](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304141528641.png)
+
+效果：
+
+![image-20230414153505208](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304141535271.png)
+
+![image-20230414153525351](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304141535411.png)
+
+懒汉式：在页面打开之后就一次性需要用户获取所有权限。
+
+```java
+public class PermissionHungryActivity extends AppCompatActivity implements View.OnClickListener {
+
+    //所需全部读写权限
+    private static final String[] PERMISSIONS = {
+            Manifest.permission.READ_CONTACTS,
+            Manifest.permission.WRITE_CONTACTS,
+            Manifest.permission.SEND_SMS,
+            Manifest.permission.RECEIVE_SMS
+    };
+
+    private static final int REQUEST_CODE_ALL = 1;
+    private static final int REQUEST_CODE_CONTACTS = 2;
+    private static final int REQUEST_CODE_SMS = 3;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_permission_hungry);
+        //检查是否拥有所有所需权限
+        PermissionUtil.checkPermission(this, PERMISSIONS, REQUEST_CODE_ALL);
+
+        findViewById(R.id.btn_contact).setOnClickListener(this);
+        findViewById(R.id.btn_sms).setOnClickListener(this);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        switch (requestCode){
+            case REQUEST_CODE_ALL:
+                if(PermissionUtil.checkGrant(grantResults)){
+                    Log.d("ning", "所有权限获取成功");
+                }else{
+                    //部分权限获取失败
+                    for (int i = 0; i < grantResults.length; i++) {
+                        if(grantResults[i] != PackageManager.PERMISSION_GRANTED){
+                            //判断是什么权限获取失败
+                            switch (permissions[i]){
+                                case Manifest.permission.WRITE_CONTACTS:
+                                case Manifest.permission.READ_CONTACTS:
+                                    Log.d("ning", "通讯录获取失败");
+                                    jumpToSettings();
+                                    break;
+                                case Manifest.permission.SEND_SMS:
+                                case Manifest.permission.RECEIVE_SMS:
+                                    Log.d("ning", "短信权限获取失败");
+                                    jumpToSettings();
+                                    break;
+                            }
+                        }
+                    }
+                }
+                break;
+        }
+    }
+
+    //跳转到设置界面
+    private void jumpToSettings(){
+        Intent intent = new Intent();
+        intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        intent.setData(Uri.fromParts("package", getPackageName(), null));
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+    }
+
+    @Override
+    public void onClick(View view) {
+        switch (view.getId()) {
+            case R.id.btn_contact:
+                PermissionUtil.checkPermission(PermissionHungryActivity.this, new String[]{PERMISSIONS[0],PERMISSIONS[1]}, REQUEST_CODE_CONTACTS);
+                break;
+            case R.id.btn_sms:
+                PermissionUtil.checkPermission(PermissionHungryActivity.this, new String[]{PERMISSIONS[2],PERMISSIONS[3]}, REQUEST_CODE_SMS);
+                break;
+        }
+    }
+}
+```
+
+
+
+
+
+#### 8.3.2 使用ContentResolver读写联系人
+
+手机中通讯录的主要表结构有：
+
+`raw_contacts`表：
+
+![img](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304181216318.png)
+
+data表：记录了用户的通讯录所有数据，包括手机号，显示名称等，但是里面的mimetype_id表示不同的数据类型，这与表mimetypes表中的id相对应，raw_contact_id 与上面的 raw_contacts表中的 id 相对应。
+
+![image-20230122114040243](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304181217145.png)
+
+mimetypes表：
+
+![image-20230122114056962](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304181217551.png)
+
+插入步骤如下：
+
+- 首先往raw_contacts表中插入一条数据得到id
+- 接着由于一个联系人有姓名，电话号码，邮箱，因此需要分三次插入data表中，将raw_contact_id和上面得到的id进行关联
+
+##### 1 单个插入联系人
+
+界面
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="联系人姓名："
+            android:textSize="17sp"
+            android:textColor="@color/black"/>
+
+        <EditText
+            android:id="@+id/et_contact_name"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="match_parent"
+            android:background="@drawable/edit_background"
+            android:layout_marginStart="10dp"
+            android:text="Jiang"
+            android:hint="请输入用户名"
+            android:inputType="text" />
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="联系人号码："
+            android:textSize="17sp"
+            android:textColor="@color/black"/>
+
+        <EditText
+            android:id="@+id/et_contact_phone"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="match_parent"
+            android:background="@drawable/edit_background"
+            android:layout_marginStart="10dp"
+            android:text="18137066576"
+            android:hint="请输入号码"
+            android:inputType="number" />
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:text="联系人邮箱："
+            android:gravity="center"
+            android:textSize="17sp"
+            android:textColor="@color/black"/>
+
+        <EditText
+            android:id="@+id/et_contact_email"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="match_parent"
+            android:background="@drawable/edit_background"
+            android:layout_marginStart="10dp"
+            android:text="156772@qq.com"
+            android:hint="请输入邮箱"
+            android:inputType="number" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/btn_add_contact"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="添加联系人"/>
+        <Button
+            android:id="@+id/btn_read_contact"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="查询联系人"/>
+
+    </LinearLayout>
+
+</LinearLayout>
+```
+
+代码
+
+实体类
+
+```
+public class Contact {
+    public String name;
+    public String phone;
+    public String email;
+
+    @Override
+    public String toString() {
+        return "Contact{" +
+                "name='" + name + '\'' +
+                ", phone='" + phone + '\'' +
+                ", email='" + email + '\'' +
+                '}';
+    }
+}
+```
+
+```
+public class ContactAddActivity extends AppCompatActivity implements View.OnClickListener {
+    private EditText et_contact_name;
+    private EditText et_contact_phone;
+    private EditText et_contact_email;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_contact_add);
+        et_contact_name = findViewById(R.id.et_contact_name);
+        et_contact_phone = findViewById(R.id.et_contact_phone);
+        et_contact_email = findViewById(R.id.et_contact_email);
+        findViewById(R.id.btn_add_contact).setOnClickListener(this);
+        findViewById(R.id.btn_read_contact).setOnClickListener(this);
+    }
+
+    @Override
+    public void onClick(View view) {
+        switch (view.getId()){
+            case R.id.btn_add_contact:
+                // 创建一个联系人对象
+                Contact contact = new Contact();
+                contact.name = et_contact_name.getText().toString().trim();
+                contact.phone = et_contact_phone.getText().toString().trim();
+                contact.email = et_contact_email.getText().toString().trim();
+                // 方式一，使用ContentResolver多次写入，每次一个字段
+                addContact(getContentResolver(),contact);
+                break;
+            case R.id.btn_read_contact:
+
+                break;
+        }
+        
+    }
+
+    //往通讯录添加一个联系人信息（姓名，号码，邮箱）
+    private void addContact(ContentResolver contentResolver, Contact contact) {
+        ContentValues values = new ContentValues();
+        //插入记录得到id
+        Uri uri = contentResolver.insert(ContactsContract.RawContacts.CONTENT_URI, values);
+        long rawContentId = ContentUris.parseId(uri);
+
+        //插入名字
+        ContentValues name = new ContentValues();
+        //关联上面得到的联系人id
+        name.put(ContactsContract.Contacts.Data.RAW_CONTACT_ID, rawContentId);
+        //关联联系人姓名的类型
+        name.put(ContactsContract.Contacts.Data.MIMETYPE, ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE);
+        //关联联系人姓名
+        name.put(ContactsContract.Data.DATA2, contact.name);
+        contentResolver.insert(ContactsContract.Data.CONTENT_URI, name);
+
+        //插入电话号码
+        ContentValues phone = new ContentValues();
+        //关联上面得到的联系人id
+        phone.put(ContactsContract.Contacts.Data.RAW_CONTACT_ID, rawContentId);
+        //关联联系人电话号码的类型
+        phone.put(ContactsContract.Contacts.Data.MIMETYPE, ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE);
+        //关联联系人电话号码
+        phone.put(ContactsContract.Data.DATA1, contact.phone);
+        //指定该号码是家庭号码还是工作号码 (家庭)
+        phone.put(ContactsContract.Data.DATA2, ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE);
+        contentResolver.insert(ContactsContract.Data.CONTENT_URI, phone);
+
+        //插入邮箱
+        ContentValues email = new ContentValues();
+        //关联上面得到的联系人id
+        email.put(ContactsContract.Contacts.Data.RAW_CONTACT_ID, rawContentId);
+        //关联联系人邮箱的类型
+        email.put(ContactsContract.Contacts.Data.MIMETYPE, ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE);
+        //关联联系人邮箱
+        email.put(ContactsContract.Data.DATA1, contact.email);
+        //指定该号码是家庭邮箱还是工作邮箱
+        email.put(ContactsContract.Data.DATA2, ContactsContract.CommonDataKinds.Phone.TYPE_WORK);
+        contentResolver.insert(ContactsContract.Data.CONTENT_URI, email);
+    }
+}
+```
+
+测试结果，添加成功
+
+![image-20230418140755308](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304181407381.png)
+
+##### 2 批量添加联系人
+
+增加批量方法
+
+```
+ addFullContacts(getContentResolver(), contact);
+```
+
+代码如下
+
+```
+private void addFullContacts(ContentResolver contentResolver, Contact contact) {
+        //创建一个插入联系人主记录的内容操作器
+        ContentProviderOperation op_main = ContentProviderOperation
+                .newInsert(ContactsContract.RawContacts.CONTENT_URI)
+                //没有实际意义，不加这个会报错（不加这个导致没有创建ContentValue，导致报错）
+                .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, null)
+                .build();
+         //创建一个插入联系人姓名记录的内容操作器
+        ContentProviderOperation op_name = ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                //将第0个操作的id，即raw_contacts中的id作为data表中的raw_contact_id
+                .withValueBackReference(ContactsContract.Contacts.Data.RAW_CONTACT_ID, 0)
+                .withValue(ContactsContract.Contacts.Data.MIMETYPE, ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
+                .withValue(ContactsContract.Data.DATA2, contact.name)
+                .build();
+      //创建一个插入联系人电话号码记录的内容操作器
+        ContentProviderOperation op_phone = ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                //将第0个操作的id，即raw_contacts中的id作为data表中的raw_contact_id
+                .withValueBackReference(ContactsContract.Contacts.Data.RAW_CONTACT_ID, 0)
+                .withValue(ContactsContract.Contacts.Data.MIMETYPE, ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE)
+                .withValue(ContactsContract.Data.DATA1, contact.phone)
+                .withValue(ContactsContract.Data.DATA2, ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)
+                .build();
+
+        //创建一个插入联系人邮箱记录的内容操作器
+        ContentProviderOperation op_email = ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                //将第0个操作的id，即raw_contacts中的id作为data表中的raw_contact_id
+                .withValueBackReference(ContactsContract.Contacts.Data.RAW_CONTACT_ID, 0)
+                .withValue(ContactsContract.Contacts.Data.MIMETYPE, ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE)
+                .withValue(ContactsContract.Data.DATA1, contact.email)
+                .withValue(ContactsContract.Data.DATA2, ContactsContract.CommonDataKinds.Phone.TYPE_WORK)
+                .build();
+
+        //全部放在集合中一次性提交
+        ArrayList<ContentProviderOperation> operations = new ArrayList<>();
+        operations.add(op_main);
+        operations.add(op_name);
+        operations.add(op_phone);
+        operations.add(op_email);
+
+        try {
+            //批量提交四个操作
+            contentResolver.applyBatch(ContactsContract.AUTHORITY, operations);
+        } catch (OperationApplicationException e) {
+            e.printStackTrace();
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+        
+    }
+```
+
+测试结果
+
+![](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304181815007.png)
+
+
+
+##### 3 查询联系人
+
+```
+ private void readPhoneContacts(ContentResolver contentResolver) {
+        //先查询raw_contacts表，再根据raw_contacts_id表 查询data表
+        Cursor cursor = contentResolver.query(ContactsContract.RawContacts.CONTENT_URI, new String[]{ContactsContract.RawContacts._ID}, null, null, null);
+        while(cursor.moveToNext()){
+            int rawContactId = cursor.getInt(0);
+            Uri uri = Uri.parse("content://com.android.contacts/contacts/" + rawContactId + "/data");
+            Cursor dataCursor = contentResolver.query(uri, new String[]{ContactsContract.Contacts.Data.MIMETYPE, ContactsContract.Contacts.Data.DATA1, ContactsContract.Contacts.Data.DATA2}, null, null, null);
+            Contact contact = new Contact();
+            while (dataCursor.moveToNext()) {
+                @SuppressLint("Range") String data1 = dataCursor.getString(dataCursor.getColumnIndex(ContactsContract.Contacts.Data.DATA1));
+                @SuppressLint("Range") String mimeType = dataCursor.getString(dataCursor.getColumnIndex(ContactsContract.Contacts.Data.MIMETYPE));
+                switch (mimeType) {
+                    //是姓名
+                    case ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE:
+                        contact.name = data1;
+                        break;
+
+                    //邮箱
+                    case ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE:
+                        contact.email = data1;
+                        break;
+
+                    //手机
+                    case ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE:
+                        contact.phone = data1;
+                        break;
+                }
+            }
+
+            dataCursor.close();
+
+            // RawContacts 表中出现的 _id，不一定在 Data 表中都会有对应记录
+            if (contact.name != null) {
+                Log.d("ning", contact.toString());
+            }
+        }
+        cursor.close();
+    }
+```
+
+![image-20230418222453977](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304182225087.png)
+
+
+
+#### 8.3.3 使用ContentObserver监听短信
+
+ContentResolver（内容观察器）获取数据采用的是主动查询方式，有查询就有数据，没查询就没数据。ContentResolver能够实时获取新增的数据，最常见的业务场景是短信验证码。
+
+为了替用户省事，App通常会监控手机刚收到的短信验证码，并自动填写验证码输入框。这时就用到了内容观察器ContentObserver，从而执行开发者预先定义的代码。
+
+![image-20230414153142996](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304141531064.png)
+
+我们要利用ContentResolver来监听短信，事先给目标内容注册一个观察器，目标内容的数据一旦发生变化，就马上触发观察器的监听事件。
+
+注意，需要配置短信的权限
+
+![image-20230418224626545](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304182246623.png)
+
+```
+    <!-- 开启短信收发权限 -->
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+```
+
+代码
+
+```
+public class MonitorSmsActivity extends AppCompatActivity {
+    private SmsGetObserver mObserver;
+    final private int REQUEST_CODE_ASK_PERMISSIONS = 123;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_monitor_sms);
+
+        // 给指定Uri注册内容观察器，一旦发生数据变化，就触发观察器的onChange方法
+        Uri uri = Uri.parse("content://sms");
+        // notifyForDescendents：
+        // false ：表示精确匹配，即只匹配该Uri，true ：表示可以同时匹配其派生的Uri
+        mObserver = new SmsGetObserver(this);
+
+        getContentResolver().registerContentObserver(uri, true, mObserver);
+
+
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        //取消注册
+        getContentResolver().unregisterContentObserver(mObserver);
+    }
+
+    private static class SmsGetObserver extends ContentObserver {
+
+        private final Context mContext;
+
+        public SmsGetObserver(Context context) {
+            super(new Handler(Looper.getMainLooper()));
+            this.mContext = context;
+        }
+
+        @SuppressLint("Range")
+        @Override
+        public void onChange(boolean selfChange, @Nullable Uri uri) {
+            super.onChange(selfChange,uri);
+            // onChange会多次调用，收到一条短信会调用两次onChange
+            // mUri===content://sms/raw/20
+            // mUri===content://sms/inbox/20
+            // 安卓7.0以上系统，点击标记为已读，也会调用一次
+            // mUri===content://sms
+            // 收到一条短信都是uri后面都会有确定的一个数字，对应数据库的_id，比如上面的20
+            if (uri == null) {
+                return;
+            }
+            if (uri.toString().contains("content://sms/raw") ||
+                    uri.toString().equals("content://sms")) {
+                return;
+            }
+
+            // 通过内容解析器获取符合条件的结果集游标
+            Cursor cursor = mContext.getContentResolver().query(uri, new String[]{"address", "body", "date"}, null, null, "date DESC");
+            if (cursor.moveToNext()) {
+                // 短信的发送号码
+               String sender = cursor.getString(cursor.getColumnIndex("address"));
+                // 短信内容
+                String content = cursor.getString(cursor.getColumnIndex("body"));
+                Log.d("ning", String.format("sender:%s,content:%s", sender, content));
+            }
+            cursor.close();
+        }
+    }
+}
+```
+
+测试
+
+![image-20230418225638402](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304182256498.png)
+
+切换到phone
+
+![image-20230418225705182](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304182257250.png)
+
+点击发送短信
+
+![image-20230418225808867](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304182258940.png)
+
+![image-20230418225827140](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304182258201.png)
+
+
+
+
+
+## 9、网络通信
 
 
 
 
 
 
-## 9、网络技术
 
 
 
-## 10、后台线程
+## 10  服务
+
+可在后台执行长时间运行操作而不提供界面的应用组件。如下载文件、播放音乐
+
+Service有两种方式：
+
+- startService ：简单地启动，之后不能进行交互
+- bindService：启动并绑定Service之后，可以进行交互
+
+
+
+
+
+
 
 
 
 ## 11、广播
+
+广播组件 Broadcast 是Android 四大组件之一。
+
+广播有以下特点：
+
+- 活动只能一对一通信；而广播可以一对多，一人发送广播，多人接收处理。
+- 对于发送方来说，广播不需要考虑接收方有没有在工作，接收方在工作就接收广播，不在工作就丢弃广播。
+- 对于接收方来说，因为可能会收到各式各样的广播，所以接收方要自行过滤符合条件的广播，之后再解包处理
+  
+
+与广播有关的方法主要有以下3个。
+
+- sendBroadcast：发送广播。
+- registerReceiver：注册广播的接收器，可在onStart或onResume方法中注册接收器。
+- unregisterReceiver：注销广播的接收器，可在onStop或onPause方法中注销接收器。
+
+
+
+广播的作用：强制下线
+
+
+
+### 11.1 收发标准广播
+
+XML
+
+```
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="5dp">
+
+    <Button
+        android:id="@+id/btn_send_standard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="发送标准广播"
+        android:textColor="@color/black"
+        android:textSize="17sp" />
+
+</LinearLayout>
+```
+
+接收器
+
+```
+public class StandardReceiver extends BroadcastReceiver {
+
+    public static final String STANDARD_ACTION = "com.jiang.broadcaststudy.standard";
+
+    // 一旦接收到标准广播，马上触发接收器的onReceive方法
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        if(intent != null && intent.getAction().equals(STANDARD_ACTION)){
+            Log.d("ning", "收到一个标准广播");
+        }
+    }
+}
+```
+
+代码
+
+```
+public class BroadcastStandardActivity extends AppCompatActivity implements View.OnClickListener {
+    private StandardReceiver standardReceiver;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        Log.d("ning", "启动了");
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_broadcast_standard);
+        findViewById(R.id.btn_send_standard).setOnClickListener(this);
+    }
+
+    @Override
+    public void onClick(View view) {
+        Log.d("ning", "发送一个标准广播");
+        Intent intent = new Intent("com.jiang.broadcaststudy.standard");
+        sendBroadcast(intent);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        standardReceiver = new StandardReceiver();
+        // 创建一个意图过滤器，只处理STANDARD_ACTION的广播
+        IntentFilter filter = new IntentFilter(StandardReceiver.STANDARD_ACTION);
+        // 注册接收器，注册之后才能正常接收广播
+        registerReceiver(standardReceiver, filter);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // 注销接收器，注销之后就不再接收广播
+        unregisterReceiver(standardReceiver);
+    }
+}
+```
+
+测试
+
+![image-20230421202125087](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304212021204.png)
+
+### 11.2 有序广播
+
+广播没指定唯一的接收者，因此可能存在多个接收器
+
+这些接收器默认是都能够接受到指定广播并且是之间的顺序按照注册的先后顺序，也可以通过指定优先级来指定顺序。
+
+![image-20230421202354766](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304212023837.png)
+
+xml
+
+```
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="5dp">
+
+    <Button
+        android:id="@+id/btn_send_order"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="发送标准广播"
+        android:textColor="@color/black"
+        android:textSize="17sp" />
+
+</LinearLayout>
+
+```
+
+接收器2个
+
+```
+public class OrderAReceiver extends BroadcastReceiver {
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        if(intent != null && intent.getAction().equals(BroadOrderActivity.ORDER_ACTION)){
+            Log.d("ning", "接收器A收到一个标准广播");
+        }
+    }
+}
+
+public class OrderBReceiver extends BroadcastReceiver {
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        if(intent != null && intent.getAction().equals(BroadOrderActivity.ORDER_ACTION)){
+            Log.d("ning", "接收器B收到一个标准广播");
+        }
+    }
+}
+```
+
+```
+public class BroadOrderActivity extends AppCompatActivity implements View.OnClickListener {
+
+    public static final String ORDER_ACTION = "com.example.broadcaststudy.order";
+    private OrderAReceiver orderAReceiver;
+    private OrderBReceiver orderBReceiver;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_broad_order);
+        findViewById(R.id.btn_send_order).setOnClickListener(this);
+    }
+
+    @Override
+    public void onClick(View view) {
+        // 创建一个指定动作的意图
+        Intent intent = new Intent(ORDER_ACTION);
+        // 发送有序广播
+        sendOrderedBroadcast(intent, null);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        // 多个接收器处理有序广播的顺序规则为：
+        // 1、优先级越大的接收器，越早收到有序广播；
+        // 2、优先级相同的时候，越早注册的接收器越早收到有序广播
+        orderAReceiver = new OrderAReceiver();
+        IntentFilter filterA = new IntentFilter(ORDER_ACTION);
+        filterA.setPriority(8);
+        registerReceiver(orderAReceiver, filterA);
+
+        orderBReceiver = new OrderBReceiver();
+        IntentFilter filterB = new IntentFilter(ORDER_ACTION);
+        filterB.setPriority(10);
+        registerReceiver(orderBReceiver, filterB);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        unregisterReceiver(orderAReceiver);
+        unregisterReceiver(orderBReceiver);
+    }
+}
+```
+
+测试结果：
+
+![image-20230421203848191](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304212038257.png)
+
+
+
+### 11.3 静态广播
+
+广播也可以通过静态代码的方式来进行注册。广播接收器也能在AndroidManifest.xml注册，并且注册时候的节点名为receiver，一旦接收器在AndroidManifest.xml注册，就无须在代码中注册了。
+
+创建接收者
+
+![image-20230421205520835](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304212055938.png)
+
+增加权限
+
+```
+<uses-permission android:name="android.permission.VIBRATE"></uses-permission>
+```
+
+接收器
+
+```
+public class ShockReceiver extends BroadcastReceiver {
+    public static final String SHOCK_ACTION = "com.jiang.shock";
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        if(intent != null && intent.getAction().equals(SHOCK_ACTION)){
+            Log.d("ning", "收到一个震动");
+            Vibrator vb = (Vibrator)context.getSystemService(Context.VIBRATOR_SERVICE);
+            vb.vibrate(500);
+        }
+    }
+}
+```
+
+xml
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="5dp">
+
+    <Button
+        android:id="@+id/btn_send_shock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="发送震动广播"
+        android:textColor="@color/black"
+        android:textSize="17sp" />
+
+</LinearLayout>
+```
+
+代码
+
+```
+public class BroadStaticActivity extends AppCompatActivity implements View.OnClickListener {
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_broad_static);
+        findViewById(R.id.btn_send_shock).setOnClickListener(this);
+    }
+
+    @Override
+    public void onClick(View view) {
+        //为了让应用继续接收静态广播，需要给静态注册广播指定包名
+        String fullName = "com.example.chapter09.receiver.ShockReceiver";
+        Intent intent = new Intent(ShockReceiver.SHOCK_ACTION);
+        ComponentName componentName = new ComponentName(this,fullName);
+        intent.setComponent(componentName);
+        sendBroadcast(intent);
+    }
+}
+```
+
+
+
+### 11.4 监听系统广播
+
+除了应用自身的广播，系统也会发出各式各样的广播，通过监听这些系统广播，App能够得知周围环境发生了什么变化，从而按照最新环境调整运行逻辑。
+
+#### 11.4.1 监听分钟广播
+
+步骤一，定义一个分钟广播的接收器，并重写接收器的onReceive方法，补充收到广播之后的处理逻辑。
+
+步骤二，重写活动页面的onStart方法，添加广播接收器的注册代码，注意要让接收器过滤分钟到达广播Intent.ACTION_TIME_TICK。
+
+步骤三，重写活动页面的onStop方法，添加广播接收器的注销代码。
+
+```
+public class TimeReceiver extends BroadcastReceiver {
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        if (intent !=null ){
+            Log.d("ning","收到一个分钟达到广播");
+        }
+    }
+}
+```
+
+```
+public class SystemMinuteActivity extends AppCompatActivity {
+    private TimeReceiver timeReceiver;// 声明一个分钟广播的接收器实例
+    private String desc = "开始侦听分钟广播，请稍等。注意要保持屏幕亮着，才能正常收到广播";
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_system_minute);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        timeReceiver = new TimeReceiver(); // 创建一个分钟变更的广播接收器
+        // 创建一个意图过滤器，只处理系统分钟变化的广播
+        IntentFilter filter = new IntentFilter(Intent.ACTION_TIME_TICK);
+        registerReceiver(timeReceiver, filter); // 注册接收器，注册之后才能正常接收广播
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        unregisterReceiver(timeReceiver); // 注销接收器，注销之后就不再接收广播
+    }
+}
+```
+
+测试结果
+
+![image-20230421221935377](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304212219442.png)
+
+#### 11.4.2  监听网络变更广播
+
+![image-20230421223238650](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304212232728.png)
+
+```
+public class NetworkReceiver extends BroadcastReceiver {
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        if (intent != null) {
+            NetworkInfo networkInfo = intent.getParcelableExtra("networkInfo");
+            String networkClass =
+                    NetworkUtil.getNetworkClass(networkInfo.getSubtype());
+            String desc = String.format("收到一个网络变更广播，网络大类为%s，" +
+                            "网络小类为%s，网络制式为%s，网络状态为%s",
+                    networkInfo.getTypeName(),
+                    networkInfo.getSubtypeName(), networkClass,
+                    networkInfo.getState().toString());
+            Log.d("ning",desc);
+
+        }
+    }
+}
+```
+
+```
+public class NetworkUtil {
+    public static String getNetworkClass(int subType) {
+        switch (subType) {
+            case TelephonyManager.NETWORK_TYPE_GPRS:
+            case TelephonyManager.NETWORK_TYPE_CDMA:
+            case TelephonyManager.NETWORK_TYPE_EDGE:
+            case TelephonyManager.NETWORK_TYPE_1xRTT:
+            case TelephonyManager.NETWORK_TYPE_IDEN:
+              return  "2G";
+            case TelephonyManager.NETWORK_TYPE_EVDO_A:
+            case TelephonyManager.NETWORK_TYPE_UMTS:
+            case TelephonyManager.NETWORK_TYPE_EVDO_0:
+            case TelephonyManager.NETWORK_TYPE_HSDPA:
+            case TelephonyManager.NETWORK_TYPE_HSUPA:
+            case TelephonyManager.NETWORK_TYPE_HSPA:
+            case TelephonyManager.NETWORK_TYPE_EVDO_B:
+            case TelephonyManager.NETWORK_TYPE_EHRPD:
+            case TelephonyManager.NETWORK_TYPE_HSPAP:
+                return  "3G";
+            case TelephonyManager.NETWORK_TYPE_LTE:
+                return  "4G";
+            case TelephonyManager.NETWORK_TYPE_NR:
+                return  "5G";
+            default:
+                return  "未知";
+        }
+    }
+```
+
+```
+public class SystemNetworkActivity extends AppCompatActivity {
+
+    private NetworkReceiver networkReceiver;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_system_network);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        // 创建一个网络变更的广播接收器
+        networkReceiver = new NetworkReceiver();
+        // 创建一个意图过滤器，只处理网络状态变化的广播
+        IntentFilter filter = new
+                IntentFilter("android.net.conn.CONNECTIVITY_CHANGE");
+        registerReceiver(networkReceiver, filter); // 注册接收器，注册之后才能正常接收广播
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        unregisterReceiver(networkReceiver); // 注销接收器，注销之后就不再接收广播
+    }
+}
+```
+
+测试
+
+![image-20230421225503050](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304212255118.png)
+
+
 
 
 
