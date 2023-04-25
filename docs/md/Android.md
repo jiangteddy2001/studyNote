@@ -2,8 +2,6 @@
 
 # Android
 
-快捷键：alt+enter / alt+ctl+f
-
 
 
 ## 1、开发环境
@@ -4765,8 +4763,1637 @@ BookDao bookDao = MyApplication.getInstance().getBookDB().bookDao();
 
 ## 7、高级控件
 
+建立图片资源文件夹
+
+![image-20230424151453248](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241514327.png)
+
+![image-20230424151424309](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241514438.png)
 
 
+
+
+
+### 7.1 下拉列表
+
+#### 7.1.1 下拉框Spinner
+
+Spinner是下拉框控件，它用于从一串列表中选择某项。下拉列表的展示方式有两种，一种是在当前下拉框的正下方弹出列表框，另一种是在页面中部弹出列表对话框，分别对应SpinnerMode属性设置为dropdown或者dialog。
+
+![image-20230424152916225](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241529310.png)
+
+适配器
+
+![image-20230424152829471](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241528583.png)
+
+适配器结构如下：
+
+![image-20230424153124810](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241531930.png)
+
+创建一个条目布局.item_select：用于描绘每个item的布局样式
+
+![image-20230424153558340](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241535434.png)
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+          android:layout_width="match_parent"
+          android:layout_height="50dp"
+          xmlns:tools="http://schemas.android.com/tools"
+          android:gravity="center"
+          android:textColor="#0000ff"
+          android:textSize="17sp"
+          tools:text="火星">
+
+</TextView>
+
+```
+
+SpinnerDropdownActivity：
+
+```
+public class SpinnerDropdownActivity extends AppCompatActivity implements AdapterView.OnItemSelectedListener {
+
+    // 定义下拉列表需要显示的文本数组
+    private final static String[] starArray = {"水星", "金星", "地球", "火星", "木星", "土星"};
+    private Spinner sp_dropdown;
+
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_spinner_dropdown);
+
+        sp_dropdown = findViewById(R.id.sp_dropdown);
+        //声明一个数组适配器
+        ArrayAdapter<String> starAdapter = new ArrayAdapter<>(this, R.layout.item_select, starArray);
+        sp_dropdown.setAdapter(starAdapter);
+        //设置默认为第一项
+        sp_dropdown.setSelection(0);
+        //设置监听器，一旦用户选择了某一项，则触发onItemSelected方法
+        sp_dropdown.setOnItemSelectedListener(this);
+    }
+
+    @Override
+    public void onItemSelected(AdapterView<?> adapterView, View view, int position, long l) {
+        Toast.makeText(this, "你选择的是" + starArray[position], Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onNothingSelected(AdapterView<?> adapterView) {
+
+    }
+}
+```
+
+页面
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".SpinnerDropdownActivity"
+    android:orientation="vertical">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="下拉模式的列表框"
+        android:textSize="17sp"/>
+
+    <Spinner
+        android:id="@+id/sp_dropdown"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:spinnerMode="dropdown"/>
+    
+</LinearLayout>
+
+```
+
+效果
+
+![image-20230424161808986](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241618118.png)
+
+#### 7.1.2 SimpleAdaper
+
+如果想要加上图标之类的，则需要用到简单适配器SimpleAdapter
+
+![image-20230424164247364](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241642466.png)
+
+![image-20230424164339292](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241643410.png)
+
+布局
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="行星的简单适配器"
+        android:textSize="17sp" />
+
+    <Spinner
+        android:id="@+id/sp_icon"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:spinnerMode="dropdown" />
+
+</LinearLayout>
+```
+
+代码：
+
+```
+public class SpinnerIconActivity extends AppCompatActivity implements AdapterView.OnItemSelectedListener {
+
+    // 定义下拉列表需要显示的行星图标数组
+    private static final int[] iconArray = {
+            R.drawable.shuixing, R.drawable.jinxing, R.drawable.diqiu,
+            R.drawable.huoxing, R.drawable.muxing, R.drawable.tuxing
+    };
+    // 定义下拉列表需要显示的行星名称数组
+    private static final String[] starArray = {"水星", "金星", "地球", "火星", "木星", "土星"};
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_spinner_icon);
+        // 声明一个映射对象的列表，用于保存行星的图标与名称配对信息
+        List<Map<String, Object>> list = new ArrayList<>();
+        // iconArray是行星的图标数组，starArray是行星的名称数组
+        for (int i = 0; i < iconArray.length; i++) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("icon", iconArray[i]);
+            item.put("name", starArray[i]);
+            list.add(item);
+        }
+
+        // 声明一个下拉列表的简单适配器，其中指定了图标与文本两组数据
+        SimpleAdapter startAdapter = new SimpleAdapter(this, list,
+                R.layout.item_simple,
+                new String[]{"icon", "name"},
+                new int[]{R.id.iv_icon, R.id.tv_name});
+
+        Spinner sp_icon = findViewById(R.id.sp_icon);
+        sp_icon.setAdapter(startAdapter);
+        sp_icon.setSelection(0);
+        sp_icon.setOnItemSelectedListener(this);
+    }
+
+    @Override
+    public void onItemSelected(AdapterView<?> adapterView, View view, int position, long l) {
+        Toast.makeText(this, "您选择的是" + starArray[position], Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onNothingSelected(AdapterView<?> adapterView) {
+    }
+}
+```
+
+条目布局文件item_simple.xml：
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal">
+
+    <ImageView
+        android:id="@+id/iv_icon"
+        android:layout_width="0dp"
+        android:layout_height="50dp"
+        android:layout_weight="1"
+        tools:src="@drawable/diqiu" />
+
+    <TextView
+        android:id="@+id/tv_name"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="3"
+        android:gravity="center"
+        android:textColor="#ff0000"
+        android:textSize="17sp"
+        tools:text="地球" />
+
+</LinearLayout>
+
+```
+
+![image-20230424163513375](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241635465.png)
+
+
+
+#### 7.1.3 BaseAdapter
+
+
+
+![image-20230424164429722](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241644831.png)
+
+自定义适配器
+
+```
+public class PlanetBaseAdapter extends BaseAdapter {
+    private Context mContext;
+    private List<Planet> mPlaneList;
+
+    public PlanetBaseAdapter(Context mContext, List<Planet> mPlaneList) {
+        this.mContext = mContext;
+        this.mPlaneList = mPlaneList;
+    }
+
+    // 获取列表项的个数
+    @Override
+    public int getCount() {
+        return mPlaneList.size();
+    }
+
+    @Override
+    public Object getItem(int position) {
+        return mPlaneList.get(position);
+    }
+
+    @Override
+    public long getItemId(int position) {
+        return position;
+    }
+
+    @Override
+    public View getView(int position, View convertView, ViewGroup parent) {
+        ViewHolder holder;
+        if (convertView == null){
+            // 根据布局文件item_list.xml生成转换视图对象
+            convertView = LayoutInflater.from(mContext).inflate(R.layout.item_list, null);
+            holder = new ViewHolder();
+            holder.iv_icon = convertView.findViewById(R.id.iv_icon);
+            holder.tv_name = convertView.findViewById(R.id.tv_name);
+            holder.tv_desc = convertView.findViewById(R.id.tv_desc);
+            // 将视图持有者保存到转换视图当中
+            convertView.setTag(holder);
+        }else{
+            holder = (ViewHolder) convertView.getTag();
+        }
+
+        // 给控制设置好数据
+        Planet planet = mPlaneList.get(position);
+        holder.iv_icon.setImageResource(planet.image);
+        holder.tv_name.setText(planet.name);
+        holder.tv_desc.setText(planet.desc);
+
+        return convertView;
+
+    }
+
+    public final class ViewHolder {
+        public ImageView iv_icon;
+        public TextView tv_name;
+        public TextView tv_desc;
+    }
+}
+```
+
+activity_base_adapter.xml：
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="行星的基本适配器"
+        android:textSize="17sp" />
+
+    <Spinner
+        android:id="@+id/sp_planet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:spinnerMode="dropdown" />
+
+</LinearLayout>
+```
+
+item_list.xml：
+
+```
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal">
+
+    <!-- 这是显示行星图片的图像视图 -->
+    <ImageView
+        android:id="@+id/iv_icon"
+        android:layout_width="0dp"
+        android:layout_height="80dp"
+        android:layout_weight="1"
+        android:scaleType="fitCenter"
+        tools:src="@drawable/diqiu" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginLeft="5dp"
+        android:layout_weight="3"
+        android:orientation="vertical">
+
+        <!-- 这是显示行星名称的文本视图 -->
+        <TextView
+            android:id="@+id/tv_name"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="start|center"
+            android:textColor="@color/black"
+            android:textSize="20sp"
+            tools:text="地球" />
+
+        <!-- 这是显示行星描述的文本视图 -->
+        <TextView
+            android:id="@+id/tv_desc"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="2"
+            android:gravity="start|center"
+            android:textColor="@color/black"
+            android:textSize="13sp"
+            tools:text="地球是太阳系八大行星之一，排行第三，也是太阳系中直径、质量和密度最大的类地行星，距离太阳1.5亿
+                        公里" />
+    </LinearLayout>
+</LinearLayout>
+
+```
+
+实体类
+
+```
+public class Planet {
+    public int image; // 行星图标
+    public String name; // 行星名称
+    public String desc; // 行星描述
+
+    public Planet(int image, String name, String desc) {
+        this.image = image;
+        this.name = name;
+        this.desc = desc;
+    }
+
+    private static int[] iconArray = {R.drawable.shuixing, R.drawable.jinxing, R.drawable.diqiu,
+            R.drawable.huoxing, R.drawable.muxing, R.drawable.tuxing};
+    private static String[] nameArray = {"水星", "金星", "地球", "火星", "木星", "土星"};
+    private static String[] descArray = {
+            "水星是太阳系八大行星最内侧也是最小的一颗行星，也是离太阳最近的行星",
+            "金星是太阳系八大行星之一，排行第二，距离太阳0.725天文单位",
+            "地球是太阳系八大行星之一，排行第三，也是太阳系中直径、质量和密度最大的类地行星，距离太阳1.5亿公里",
+            "火星是太阳系八大行星之一，排行第四，属于类地行星，直径约为地球的53%",
+            "木星是太阳系八大行星中体积最大、自转最快的行星，排行第五。它的质量为太阳的千分之一，但为太阳系中其它七大行星质量总和的2.5倍",
+            "土星为太阳系八大行星之一，排行第六，体积仅次于木星"
+    };
+
+    public static List<Planet> getDefaultList() {
+        List<Planet> planetList = new ArrayList<Planet>();
+        for (int i = 0; i < iconArray.length; i++) {
+            planetList.add(new Planet(iconArray[i], nameArray[i], descArray[i]));
+        }
+        return planetList;
+    }
+}
+
+```
+
+BaseAdapterActivity：
+
+```
+public class BaseAdapterActivity extends AppCompatActivity implements AdapterView.OnItemSelectedListener {
+    private List<Planet> planetList;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_base_adapter);
+        Spinner sp_planet = findViewById(R.id.sp_planet);
+        // 获取默认的行星列表，即水星、金星、地球、火星、木星、土星
+        planetList = Planet.getDefaultList();
+        // 构建一个行星列表的适配器
+        PlanetBaseAdapter adapter = new PlanetBaseAdapter(this, planetList);
+        sp_planet.setAdapter(adapter);
+        sp_planet.setSelection(0);
+        sp_planet.setOnItemSelectedListener(this);
+
+    }
+
+    @Override
+    public void onItemSelected(AdapterView<?> adapterView, View view, int position, long l) {
+        Toast.makeText(this, "您选择的是" + planetList.get(position).name, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onNothingSelected(AdapterView<?> adapterView) {
+
+    }
+}
+```
+
+运行结果：
+
+![image-20230424165733298](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241657401.png)
+
+
+
+### 7.2 列表类视图
+
+#### 7.2.1 列表视图 ListView
+
+ListView允许在页面上分行展示相似的数据列表，例如新闻列表、商品列表、图书列表等，方便用户浏览与操作
+
+对于上面的代码，数据适配器PlanetBaseAdapter，条目布局item_list.xml，都不需要修改。只需要修改主Activity即可：
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="40dp">
+
+        <CheckBox
+            android:id="@+id/ck_divider"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="start|center"
+            android:text="显示分隔线"
+            android:textSize="17sp"/>
+
+        <CheckBox
+            android:id="@+id/ck_selector"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="start|center"
+            android:text="显示按压背景"
+            android:textSize="17sp"/>
+
+    </LinearLayout>
+
+    <!--只需要添加ListView即可-->
+    <ListView
+        android:id="@+id/lv_planet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:divider="@null"
+        android:dividerHeight="0dp"
+        android:listSelector="@color/transparent"/>
+
+</LinearLayout>
+
+```
+
+list_selector.xml
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/orange" android:state_pressed="true" />
+    <item android:drawable="@color/white" />
+</selector>
+```
+
+color.xml
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="red">#ff0000</color>
+    <color name="orange">#ff6633</color>
+    <color name="transparent">#00000000</color>
+</resources>
+```
+
+```java
+public class ListViewActivity extends AppCompatActivity implements AdapterView.OnItemClickListener, CompoundButton.OnCheckedChangeListener {
+    private List<Planet> planetList;
+    private CheckBox ck_diviver;
+    private CheckBox ck_selector;
+    private ListView lv_planet;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_list_view);
+
+        lv_planet = findViewById(R.id.lv_planet);
+        planetList = Planet.getDefaultList();
+        PlanetBaseAdapter adapter = new PlanetBaseAdapter(this, planetList);
+        lv_planet.setAdapter(adapter);
+
+        lv_planet.setOnItemClickListener(this);
+
+        ck_diviver = findViewById(R.id.ck_divider);
+        ck_diviver.setOnCheckedChangeListener(this);
+        ck_selector = findViewById(R.id.ck_selector);
+        ck_selector.setOnCheckedChangeListener(this);
+    }
+
+    @Override
+    public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
+        Toast.makeText(this, "您选择的是：" + planetList.get(position).name, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onCheckedChanged(CompoundButton buttonView, boolean b) {
+        switch (buttonView.getId()) {
+            case R.id.ck_divider:
+                // 显示分隔线
+                if (ck_diviver.isChecked()) {
+                    // 从资源文件获得图形对象
+                    Drawable drawable = getResources().getDrawable(R.color.black, getTheme());
+                    lv_planet.setDivider(drawable);
+                    // 设置列表视图的分隔线高度
+                    lv_planet.setDividerHeight(Utils.dip2px(this, 1));
+                } else {
+                    lv_planet.setDivider(null);
+                    lv_planet.setDividerHeight(0);
+                }
+                break;
+
+            case R.id.ck_selector:
+                // 显示按压背景
+                if (ck_selector.isChecked()) {
+                    // 设置列表项的按压状态图形
+                    lv_planet.setSelector(R.drawable.list_selector);
+                } else {
+                    Drawable drawable = getResources().getDrawable(R.color.transparent, getTheme());
+                    lv_planet.setSelector(drawable);
+                }
+                break;
+        }
+
+    }
+}
+```
+
+![image-20230424181704934](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241817072.png)
+
+
+
+#### 7.2.2 ListView事件冲突
+
+![image-20230424184426403](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241844557.png)
+
+![image-20230424184315047](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241843174.png)
+
+添加一个item_list_with_button.xml
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/ll_item"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal">
+
+    <!--
+    android:descendantFocusability="blocksDescendants"
+    blocksDescendants可阻止下级控件获得焦点，避免堵塞列表视图的点击事件 -->
+
+    <!-- 这是显示行星图片的图像视图 -->
+    <ImageView
+        android:id="@+id/iv_icon"
+        android:layout_width="0dp"
+        android:layout_height="80dp"
+        android:layout_weight="1"
+        android:scaleType="fitCenter"
+        tools:src="@drawable/diqiu" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginLeft="5dp"
+        android:layout_weight="3"
+        android:orientation="vertical">
+
+        <!-- 这是显示行星名称的文本视图 -->
+        <TextView
+            android:id="@+id/tv_name"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="start|center"
+            android:textColor="@color/black"
+            android:textSize="20sp"
+            tools:text="地球" />
+
+        <!-- 这是显示行星描述的文本视图 -->
+        <TextView
+            android:id="@+id/tv_desc"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="2"
+            android:gravity="start|center"
+            android:textColor="@color/black"
+            android:textSize="13sp"
+            tools:text="地球是太阳系八大行星之一，排行第三，也是太阳系中直径、质量和密度最大的类地行星，距离太阳1.5亿公里" />
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btn_oper"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:text="点我" />
+</LinearLayout>
+```
+
+添加一个适配器
+
+```
+public class PlanetListWithButtonAdapter extends BaseAdapter {
+
+    private Context mContext;
+    private List<Planet> mPlaneList;
+
+    public PlanetListWithButtonAdapter(Context mContext, List<Planet> mPlaneList) {
+        this.mContext = mContext;
+        this.mPlaneList = mPlaneList;
+    }
+
+    // 获取列表项的个数
+    @Override
+    public int getCount() {
+        return mPlaneList.size();
+    }
+
+    @Override
+    public Object getItem(int position) {
+        return mPlaneList.get(position);
+    }
+
+    @Override
+    public long getItemId(int position) {
+        return position;
+    }
+
+    @Override
+    public View getView(int position, View convertView, ViewGroup parent) {
+        ViewHolder holder;
+        if (convertView == null) {
+            // 根据布局文件item_list.xml生成转换视图对象
+            convertView = LayoutInflater.from(mContext).inflate(R.layout.item_list_with_button, null);
+            holder = new ViewHolder();
+            holder.ll_item = convertView.findViewById(R.id.ll_item);
+            holder.iv_icon = convertView.findViewById(R.id.iv_icon);
+            holder.tv_name = convertView.findViewById(R.id.tv_name);
+            holder.tv_desc = convertView.findViewById(R.id.tv_desc);
+            holder.btn_oper = convertView.findViewById(R.id.btn_oper);
+            // 将视图持有者保存到转换视图当中
+            convertView.setTag(holder);
+        } else {
+            holder = (ViewHolder) convertView.getTag();
+        }
+
+        // 给控制设置好数据
+        Planet planet = mPlaneList.get(position);
+        holder.ll_item.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+        holder.iv_icon.setImageResource(planet.image);
+        holder.tv_name.setText(planet.name);
+        holder.tv_desc.setText(planet.desc);
+        holder.btn_oper.setOnClickListener(v -> {
+            ToastUtil.show(mContext, "按钮被点击了，" + planet.name);
+        });
+
+        return convertView;
+    }
+
+    public final class ViewHolder {
+        public LinearLayout ll_item;
+        public ImageView iv_icon;
+        public TextView tv_name;
+        public TextView tv_desc;
+        public Button btn_oper;
+    }
+}
+```
+
+界面
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <ListView
+        android:id="@+id/lv_planet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+</LinearLayout>
+```
+
+```
+public class ListFocusActivity extends AppCompatActivity implements AdapterView.OnItemClickListener {
+
+    private List<Planet> planetList;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_list_focus);
+
+        ListView lv_planet = findViewById(R.id.lv_planet);
+        planetList = Planet.getDefaultList();
+        PlanetListWithButtonAdapter adapter = new PlanetListWithButtonAdapter(this, planetList);
+        lv_planet.setAdapter(adapter);
+        lv_planet.setOnItemClickListener(this);
+    }
+
+    @Override
+    public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
+        ToastUtil.show(this, "条目被点击了，" + planetList.get(position).name);
+    }
+}
+```
+
+![image-20230424183954622](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241839738.png)
+
+#### 7.2.3 网格视图GridView
+
+网格视图GridView也是常见的列表类视图，它用于分行分列显示表格信息，比列表视图更适合展示物品清单
+
+![image-20230424184529199](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241845338.png)
+
+![image-20230424181903657](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241819786.png)
+
+网格视图拉伸模式的取值说明
+
+![image-20230424181927184](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241819307.png)
+
+布局文件
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/white"
+    android:orientation="vertical">
+
+    <!-- 这是显示行星名称的文本视图 -->
+    <TextView
+        android:id="@+id/tv_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textColor="@color/black"
+        android:textSize="20sp"
+        tools:text="地球" />
+
+    <!-- 这是显示行星图片的图像视图 -->
+    <ImageView
+        android:id="@+id/iv_icon"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:scaleType="fitCenter"
+        tools:src="@drawable/diqiu" />
+
+    <!-- 这是显示行星描述的文本视图 -->
+    <TextView
+        android:id="@+id/tv_desc"
+        android:layout_width="match_parent"
+        android:layout_height="70dp"
+        android:gravity="start|top"
+        android:textColor="@color/black"
+        android:textSize="13sp"
+        tools:text="地球是太阳系八大行星之一，排行第三，也是太阳系中直径、质量和密度最大的类地行星，距离太阳1.5亿公里" />
+</LinearLayout>
+```
+
+适配器
+
+```
+public class PlanetGridAdapter extends BaseAdapter {
+
+    private Context mContext;
+    private List<Planet> mPlaneList;
+
+    public PlanetGridAdapter(Context mContext, List<Planet> mPlaneList) {
+        this.mContext = mContext;
+        this.mPlaneList = mPlaneList;
+    }
+
+    // 获取列表项的个数
+    @Override
+    public int getCount() {
+        return mPlaneList.size();
+    }
+
+    @Override
+    public Object getItem(int position) {
+        return mPlaneList.get(position);
+    }
+
+    @Override
+    public long getItemId(int position) {
+        return position;
+    }
+
+    @Override
+    public View getView(int position, View convertView, ViewGroup parent) {
+        ViewHolder holder;
+        if (convertView == null){
+            // 根据布局文件item_list.xml生成转换视图对象
+            convertView = LayoutInflater.from(mContext).inflate(R.layout.item_grid, null);
+            holder = new ViewHolder();
+            holder.iv_icon = convertView.findViewById(R.id.iv_icon);
+            holder.tv_name = convertView.findViewById(R.id.tv_name);
+            holder.tv_desc = convertView.findViewById(R.id.tv_desc);
+            // 将视图持有者保存到转换视图当中
+            convertView.setTag(holder);
+        }else{
+            holder = (ViewHolder) convertView.getTag();
+        }
+
+        // 给控制设置好数据
+        Planet planet = mPlaneList.get(position);
+        holder.iv_icon.setImageResource(planet.image);
+        holder.tv_name.setText(planet.name);
+        holder.tv_desc.setText(planet.desc);
+
+        return convertView;
+    }
+
+    public final class ViewHolder {
+        public ImageView iv_icon;
+        public TextView tv_name;
+        public TextView tv_desc;
+    }
+}
+```
+
+xml
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <GridView
+        android:id="@+id/gv_planet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#00ffff"
+        android:horizontalSpacing="3dp"
+        android:numColumns="2"
+        android:verticalSpacing="3dp"
+        android:columnWidth="100dp"
+        android:stretchMode="spacingWidthUniform"/>
+
+</LinearLayout>
+```
+
+```
+public class GridViewActivity extends AppCompatActivity implements AdapterView.OnItemClickListener {
+    private GridView gv_planet;
+    private List<Planet> planetList;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_grid_view);
+        gv_planet = findViewById(R.id.gv_planet);
+        planetList = Planet.getDefaultList();
+        PlanetGridAdapter adapter = new PlanetGridAdapter(this, planetList);
+        gv_planet.setAdapter(adapter);
+        gv_planet.setOnItemClickListener(this);
+        gv_planet.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
+    }
+
+    @Override
+    public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
+        ToastUtil.show(this, "您选择了：" + planetList.get(position).name);
+    }
+}
+```
+
+测试
+
+![image-20230424193007740](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241930858.png)
+
+
+
+
+
+### 7.3 翻页类视图
+
+#### 7.3.1 翻页视图 ViewPager
+
+![image-20230424193129067](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241931257.png)
+
+翻页视图的原理类似列表视图和网格视图，它们的用法也很类似。例如，列表视图和网格视图使用基本适配器BaseAdapter，翻页视图则使用翻页适配器PagerAdapter；列表视图和网格视图使用列表项的点击监听器OnItemClickListener，翻页视图则使用页面变更监听器OnPageChangeListener监听页面切换事件。
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <androidx.viewpager.widget.ViewPager
+        android:id="@+id/vp_content"
+        android:layout_width="match_parent"
+        android:layout_height="370dp" />
+
+
+</LinearLayout>
+```
+
+```
+//商品信息
+public class GoodsInfo {
+    public int id;
+    // 名称
+    public String name;
+    // 描述
+    public String description;
+    // 价格
+    public float price;
+    // 大图的保存路径
+    public String picPath;
+    // 大图的资源编号
+    public int pic;
+
+    // 声明一个手机商品的名称数组
+    private static String[] mNameArray = {
+            "iPhone11", "Mate30", "小米10", "OPPO Reno3", "vivo X30", "荣耀30S"
+    };
+    // 声明一个手机商品的描述数组
+    private static String[] mDescArray = {
+            "Apple iPhone11 256GB 绿色 4G全网通手机",
+            "华为 HUAWEI Mate30 8GB+256GB 丹霞橙 5G全网通 全面屏手机",
+            "小米 MI10 8GB+128GB 钛银黑 5G手机 游戏拍照手机",
+            "OPPO Reno3 8GB+128GB 蓝色星夜 双模5G 拍照游戏智能手机",
+            "vivo X30 8GB+128GB 绯云 5G全网通 美颜拍照手机",
+            "荣耀30S 8GB+128GB 蝶羽红 5G芯片 自拍全面屏手机"
+    };
+    // 声明一个手机商品的价格数组
+    private static float[] mPriceArray = {6299, 4999, 3999, 2999, 2998, 2399};
+    // 声明一个手机商品的大图数组
+    private static int[] mPicArray = {
+            R.drawable.iphone, R.drawable.huawei, R.drawable.xiaomi,
+            R.drawable.oppo, R.drawable.vivo, R.drawable.rongyao
+    };
+
+    // 获取默认的手机信息列表
+    public static ArrayList<GoodsInfo> getDefaultList() {
+        ArrayList<GoodsInfo> goodsList = new ArrayList<GoodsInfo>();
+        for (int i = 0; i < mNameArray.length; i++) {
+            GoodsInfo info = new GoodsInfo();
+            info.id = i;
+            info.name = mNameArray[i];
+            info.description = mDescArray[i];
+            info.price = mPriceArray[i];
+            info.pic = mPicArray[i];
+            goodsList.add(info);
+        }
+        return goodsList;
+    }
+}
+```
+
+适配器
+
+```
+public class ImagePagerAdapater extends PagerAdapter {
+
+    private final Context mContext;
+    private final ArrayList<GoodsInfo> mGoodsList;
+    // 声明一个图像视图列表
+    private List<ImageView> mViewList = new ArrayList<>();
+
+    public ImagePagerAdapater(Context mContext, ArrayList<GoodsInfo> mGoodsList) {
+        this.mContext = mContext;
+        this.mGoodsList = mGoodsList;
+        // 给每个商品分配一个专用的图像视图
+        for (GoodsInfo info : mGoodsList) {
+            ImageView view = new ImageView(mContext);
+            view.setLayoutParams(new ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            ));
+            view.setImageResource(info.pic);
+            mViewList.add(view);
+        }
+    }
+
+    @Override
+    public int getCount() {
+        return mViewList.size();
+    }
+
+    // 实例化指定位置的页面，并将其添加到容器中
+    @Override
+    public boolean isViewFromObject(@NonNull View view, @NonNull Object object) {
+        return view == object;
+    }
+
+    // 实例化指定位置的页面，并将其添加到容器中
+    @NonNull
+    @Override
+    public Object instantiateItem(@NonNull ViewGroup container, int position) {
+        // 添加一个view到container中，而后返回一个跟这个view可以关联起来的对象，
+        // 这个对象能够是view自身，也能够是其余对象，
+        // 关键是在isViewFromObject可以将view和这个object关联起来
+        ImageView item = mViewList.get(position);
+        container.addView(item);
+        return item;
+    }
+
+    // 从容器中销毁指定位置的页面
+    @Override
+    public void destroyItem(@NonNull ViewGroup container, int position, @NonNull Object object) {
+        container.removeView(mViewList.get(position));
+    }
+
+    @Nullable
+    @Override
+    public CharSequence getPageTitle(int position) {
+        return mGoodsList.get(position).name;
+    }
+}
+```
+
+```
+public class ViewPagerActivity extends AppCompatActivity implements ViewPager.OnPageChangeListener {
+    private ArrayList<GoodsInfo> mGoodsList;
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_view_pager);
+
+        ViewPager vp_content = findViewById(R.id.vp_content);
+        mGoodsList = GoodsInfo.getDefaultList();
+        ImagePagerAdapater adapter = new ImagePagerAdapater(this, mGoodsList);
+        vp_content.setAdapter(adapter);
+        // 给翻页视图添加页面变更监听器
+        vp_content.addOnPageChangeListener(this);
+    }
+
+    // 在翻页过程中触发。该方法的三个参数取值说明为 ：第一个参数表示当前页面的序号
+    // 第二个参数表示页面偏移的百分比，取值为0到1；第三个参数表示页面的偏移距离
+    @Override
+    public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
+
+    }
+
+    // 在翻页结束后触发。position表示当前滑到了哪一个页面
+    @Override
+    public void onPageSelected(int position) {
+        ToastUtil.show(this, "您翻到的手机品牌是：" + mGoodsList.get(position).name);
+    }
+
+    // 翻页状态改变时触发。state取值说明为：0表示静止，1表示正在滑动，2表示滑动完毕
+    // 在翻页过程中，状态值变化依次为：正在滑动→滑动完毕→静止
+    @Override
+    public void onPageScrollStateChanged(int state) {
+
+    }
+}
+```
+
+效果
+
+![image-20230424195422362](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241954476.png)
+
+#### 7.3.2 翻页标签栏 PagerTabStrip
+
+![image-20230424222025005](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304242220275.png)
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <androidx.viewpager.widget.ViewPager
+        android:id="@+id/vp_content"
+        android:layout_width="match_parent"
+        android:layout_height="400dp">
+
+        <androidx.viewpager.widget.PagerTabStrip
+            android:id="@+id/pts_tab"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+    </androidx.viewpager.widget.ViewPager>
+
+</LinearLayout>
+```
+
+```
+public class PagerTabActivity extends AppCompatActivity implements ViewPager.OnPageChangeListener {
+    private ArrayList<GoodsInfo> mGoodsList;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_pager_tab);
+        initPagerStrip();
+        initViewPager();
+    }
+
+    // 初始化翻页标签栏
+    private void initPagerStrip() {
+        PagerTabStrip pts_tab = findViewById(R.id.pts_tab);
+        // 设置翻页标签栏的文本大小
+        pts_tab.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        pts_tab.setTextColor(Color.BLACK);
+    }
+
+    // 初始化翻页视图
+    private void initViewPager() {
+        ViewPager vp_content = findViewById(R.id.vp_content);
+        mGoodsList = GoodsInfo.getDefaultList();
+        ImagePagerAdapater adapter = new ImagePagerAdapater(this, mGoodsList);
+        vp_content.setAdapter(adapter);
+        // 给翻页视图添加页面变更监听器
+        vp_content.addOnPageChangeListener(this);
+        vp_content.setCurrentItem(3);
+    }
+
+    @Override
+    public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
+
+    }
+
+    @Override
+    public void onPageSelected(int position) {
+        ToastUtil.show(this, "您翻到的手机品牌是：" + mGoodsList.get(position).name);
+    }
+
+    @Override
+    public void onPageScrollStateChanged(int state) {
+
+    }
+}
+```
+
+最终效果
+
+![image-20230424222938588](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304242229709.png)
+
+
+### 7.4 Fragment（碎片）
+
+Fragment（碎片）是一种可以嵌入在Activity中的UI片段，与Activity非常相似，不仅包含布局，同时也具有自己的生命周期。
+
+![image-20230424223201608](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304242232726.png)
+
+Fragment 表示应用界面中可重复使用的一部分。Fragment 允许您将界面划分为离散的区块，从而将模块化和可重用性引入 Activity 的界面。
+
+![image-20230424223351725](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304242233836.png)
+
+Fragment的布局文件和代码使用起来和Activity基本无异。除了继承自Fragment与入口方法onCreateView两点，其他地
+方类似活动页面代码。
+
+Fragment的注册方式有两种：
+
+- 静态注册：在xml中引入
+- 动态注册：通过java代码的方式引入
+
+#### 7.4.1 静态注册
+
+创建一个Fragment
+
+```
+public class StaticFragment extends Fragment {
+
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.fragment_static, container, false);
+    }
+}
+
+```
+
+Fragment的布局文件fragment_static.xml：
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:background="#bbffbb">
+
+    <TextView
+        android:id="@+id/tv_adv"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text="广告图片"
+        android:textColor="#000000"
+        android:textSize="17sp" />
+
+    <ImageView
+        android:id="@+id/iv_adv"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="4"
+        android:src="@drawable/adv"
+        android:scaleType="fitCenter" />
+
+</LinearLayout>
+```
+
+在Activity的布局文件中静态引入Fragment：
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <!-- 引入Fragment-->
+    <fragment
+        android:id="@+id/fragment_static"
+        android:name="com.example.chapter08.fragment.StaticFragment"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"/>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="这里是每个页面的具体内容"
+        android:textColor="#000000"
+        android:textSize="17sp" />
+
+</LinearLayout>
+```
+
+![image-20230424225558294](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304242255367.png)
+
+#### 7.4.2 Fragment生命周期
+
+![image-20230424225755911](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304242257028.png)
+
+```
+public class StaticFragment extends Fragment {
+
+    private static final String TAG = "fragment";
+
+    // 把碎片贴到页面上
+    @Override
+    public void onAttach(@NonNull Context context) {
+        super.onAttach(context);
+        Log.d(TAG, "Fragment onAttach");
+    }
+
+    // 页面创建
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        Log.d(TAG, "Fragment onCreate");
+    }
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
+        Log.d(TAG, "Fragment onCreateView");
+        //给fragment添加布局文件
+        return inflater.inflate(R.layout.fragment_static, container, false);
+    }
+
+    //在活动页面创建之后
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+        Log.d(TAG, "Fragment onActivityCreated");
+    }
+
+
+    // 页面启动
+    @Override
+    public void onStart() {
+        super.onStart();
+        Log.d(TAG, "Fragment onStart");
+    }
+
+    // 页面恢复
+    @Override
+    public void onResume() {
+        super.onResume();
+        Log.d(TAG, "Fragment onResume");
+    }
+
+    // 页面暂停
+    @Override
+    public void onPause() {
+        super.onPause();
+        Log.d(TAG, "Fragment onPause");
+    }
+
+    // 页面停止
+    @Override
+    public void onStop() {
+        super.onStop();
+        Log.d(TAG, "Fragment onStop");
+    }
+
+    // 销毁碎片视图
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        Log.d(TAG, "Fragment onDestroyView");
+    }
+
+    // 页面销毁
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        Log.d(TAG, "Fragment onDestroy");
+    }
+
+    // 把碎片从页面撕下来
+    @Override
+    public void onDetach() {
+        super.onDetach();
+        Log.d(TAG, "Fragment onDetach");
+    }
+}
+```
+
+![image-20230424230329473](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304242303581.png)
+
+
+
+#### 7.4.3 Fragment动态注册
+
+动态注册迟至代码执行时才动态添加碎片。动态生成的碎片基本给翻页视图使用
+
+如果结合使用碎片，翻页视图的适配器就要改用碎片适配器FragmentPagerAdapter。
+
+创建碎片动态
+
+```
+public class DynamicFragment extends Fragment {
+    private static final String TAG = "fragment";
+
+    public static DynamicFragment newInstance(int position, int image_id, String desc) {
+        DynamicFragment fragment = new DynamicFragment();
+        // 把参数打包，传入fragment中
+        Bundle args = new Bundle();
+        args.putInt("position", position);
+        args.putInt("image_id", image_id);
+        args.putString("desc", desc);
+        fragment.setArguments(args);
+        return fragment;
+    }
+
+    // 从包裹取出位置序号
+    private int getPosition(){
+        return getArguments().getInt("position", 0);
+    }
+
+    @Override
+    public void onAttach(@NonNull Context context) { // 把碎片贴到页面上
+        super.onAttach(context);
+        Log.d(TAG, "fragment onAttach position=" + getPosition());
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) { // 页面创建
+        super.onCreate(savedInstanceState);
+        Log.d(TAG, "fragment onCreate position=" + getPosition());
+    }
+
+    // 创建碎片视图
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
+        // 根据布局文件fragment_dynamic.xml生成视图对象
+        View view = inflater.inflate(R.layout.fragment_dynamic, container, false);
+        Bundle arguments = getArguments();
+        if (arguments != null){
+            ImageView iv_pic = view.findViewById(R.id.iv_pic);
+            TextView tv_desc = view.findViewById(R.id.tv_desc);
+            iv_pic.setImageResource(arguments.getInt("image_id",R.drawable.huawei));
+            tv_desc.setText(arguments.getString("desc"));
+        }
+        Log.d(TAG, "fragment onCreateView position=" + getPosition());
+        return view;
+    }
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) { //在活动页面创建之后
+        super.onActivityCreated(savedInstanceState);
+        Log.d(TAG, "fragment onActivityCreated position=" + getPosition());
+    }
+
+    @Override
+    public void onStart() { // 页面启动
+        super.onStart();
+        Log.d(TAG, "fragment onStart position=" + getPosition());
+    }
+
+    @Override
+    public void onResume() { // 页面恢复
+        super.onResume();
+        Log.d(TAG, "fragment onResume position=" + getPosition());
+    }
+
+    @Override
+    public void onPause() { // 页面暂停
+        super.onPause();
+        Log.d(TAG, "fragment onPause position=" + getPosition());
+    }
+
+    @Override
+    public void onStop() { // 页面停止
+        super.onStop();
+        Log.d(TAG, "fragment onStop position=" + getPosition());
+    }
+
+    @Override
+    public void onDestroyView() { // 销毁碎片视图
+        super.onDestroyView();
+        Log.d(TAG, "fragment onDestroyView position=" + getPosition());
+    }
+
+    @Override
+    public void onDestroy() { // 页面销毁
+        super.onDestroy();
+        Log.d(TAG, "fragment onDestroy position=" + getPosition());
+    }
+
+    @Override
+    public void onDetach() { // 把碎片从页面撕下来
+        super.onDetach();
+        Log.d(TAG, "fragment onDetach position=" + getPosition());
+    }
+
+}
+```
+
+Fragment的布局文件 fragment_dynamic：
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <ImageView
+        android:id="@+id/iv_pic"
+        android:layout_width="match_parent"
+        android:layout_height="360dp"
+        android:scaleType="fitCenter" />
+
+    <TextView
+        android:id="@+id/tv_desc"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="left"
+        android:textColor="@color/black"
+        android:textSize="17sp" />
+
+</LinearLayout>
+```
+
+适配器 MobilePagerAdapter：
+
+```
+public class MobilePagerAdapter  extends FragmentPagerAdapter {
+
+    private List<GoodsInfo> mGoodsList;
+
+    public MobilePagerAdapter(@NonNull FragmentManager fm, List<GoodsInfo> goodsList) {
+        super(fm, BEHAVIOR_RESUME_ONLY_CURRENT_FRAGMENT);
+        this.mGoodsList = goodsList;
+    }
+    @NonNull
+    @Override
+    public Fragment getItem(int position) {
+        GoodsInfo goodsInfo = mGoodsList.get(position);
+        return DynamicFragment.newInstance(position, goodsInfo.pic, goodsInfo.description);
+    }
+
+    @Override
+    public int getCount() {
+        return mGoodsList.size();
+    }
+
+    @Nullable
+    @Override
+    public CharSequence getPageTitle(int position) {
+        return mGoodsList.get(position).name;
+    }
+}
+```
+
+Activity：
+
+```
+public class FragmentDynamicActivity extends AppCompatActivity {
+    private ArrayList<GoodsInfo> mGoodsList;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_fragment_dynamic);
+        initPagerStrip();
+
+        initViewPager();
+    }
+
+    private void initViewPager() {
+        PagerTabStrip pts_tab = findViewById(R.id.pts_tab);
+        // 设置翻页标签栏的文本大小
+        pts_tab.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        pts_tab.setTextColor(Color.BLACK);
+    }
+
+    private void initPagerStrip() {
+        ViewPager vp_content = findViewById(R.id.vp_content);
+        mGoodsList = GoodsInfo.getDefaultList();
+        MobilePagerAdapter adapter = new MobilePagerAdapter(getSupportFragmentManager(), mGoodsList);
+        vp_content.setAdapter(adapter);
+    }
+}
+```
+
+布局
+
+```
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <androidx.viewpager.widget.ViewPager
+        android:id="@+id/vp_content"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <androidx.viewpager.widget.PagerTabStrip
+            android:id="@+id/pts_tab"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+    </androidx.viewpager.widget.ViewPager>
+
+</LinearLayout>
+```
+
+效果：滑动后观测日志输出
+
+![image-20230424231736697](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304242317797.png)
+
+![image-20230424231634782](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304242316866.png)
+
+再次滚动
+
+![](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304242317975.png)
+
+进入第一个碎片之际，实际只加载了第一页和第二页，并没有加载所有碎片页，这正是碎片动态注册的优点。无论当前位于哪一页，系统都只会加载当前页及相邻的左右两页，总共加载不超过 3 页。一旦发生页面切换，相邻页面就被加载，非相邻页面就被回收。这么做的好处是节省了宝贵的系统资源，只有用户正在浏览与将要浏览的碎片页才会加载，避免所有碎片页一起加载造成资源浪费，后者正是普通翻页视图的缺点。
 
 
 ## 8、内容提供器
@@ -5690,15 +7317,442 @@ public class MonitorSmsActivity extends AppCompatActivity {
 
 ## 9、网络通信
 
+### 9.1  Handler消息机制
+
+HTTP请求需要一定时间才能完成，所以不能在主线程中执行。所以一般采用创建一个新线程的方式来执行HTTP，然后再将返回结果发送给主线程。Android提供了Handler来实现这一过程。
+
+Handler机制主要包括四个关键对象：
+
+- Message：消息。
+- Handler：处理者，主要负责Message的发送以及处理。
+- MessageQueue：消息队列，主要用来存放Handler发送过来的消息。
+- Looper：消息循环，不断的从MessageQueue中抽取Message并执行。
+  
+
+![img](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304232117982.png)
+
+以下通过获取高德天气信息为例，介绍Handler的基本使用
+
+添加权限
+
+```
+ <uses-permission android:name="android.permission.INTERNET" />
+```
+
+创建获取天气的线程WeatherThread：
+
+```
+public class WeatherThread extends Thread{
+    //天气接口
+    private String path = "https://restapi.amap.com/v3/weather/weatherInfo?city=440300&key=f15437fa96e40903e41bcb0c0adc8d38";
+
+    //handler
+    private Handler handler;
+
+    public WeatherThread(Handler handler) {
+        this.handler = handler;
+    }
+
+    @Override
+    public void run() {
+        String weather = getWeather();
+
+        Message message = new Message();
+        message.what = 0;
+        message.obj = weather;
+
+        handler.sendMessage(message);
+    }
+
+    //获取天气信息
+    private String getWeather() {
+
+        StringBuilder builder = new StringBuilder();
+
+        HttpsURLConnection conn = null;
+        try {
+            URL url = new URL(path);
+            conn = (HttpsURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(5000);
+
+            InputStream is = conn.getInputStream();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+            String result = reader.readLine();
+
+            return result;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
+        return null;
+    }
+
+}
+```
+
+WeatherHandler：
+
+```
+public class WeatherHandler extends Handler {
+
+    private HandlerActivity handlerActivity;
+
+    public WeatherHandler(HandlerActivity handlerActivity){
+        this.handlerActivity = handlerActivity;
+    }
+
+    @Override
+    public void handleMessage(@NonNull Message msg) {
+        super.handleMessage(msg);
+
+        //接受到消息则把天气结果设置到文本框
+        if(msg.what == 0){
+            TextView txWeather = handlerActivity.findViewById(R.id.tx_weather);
+            txWeather.setText((String) msg.obj);
+        }
+    }
+}
+```
+
+Activity：
+
+```
+public class HandlerActivity extends AppCompatActivity {
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_handler);
+
+        //点击按钮后开启新线程获取天气信息
+        findViewById(R.id.bt_weather).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                WeatherHandler handler = new WeatherHandler(HandlerActivity.this);
+                new WeatherThread(handler).start();
+            }
+        });
+    }
+}
+```
+
+```
+    <TextView
+        android:id="@+id/tx_weather"
+        android:layout_width="match_parent"
+        android:layout_height="300dp"
+        android:background="@drawable/edit_background"
+        android:layout_margin="30dp"/>
+
+    <Button
+        android:id="@+id/bt_weather"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="获取天气信息"
+        android:layout_marginTop="40dp"
+        android:background="#B4B5AB"/>
+```
+
+测试效果
+
+![image-20230423213143795](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304232131864.png)
+
+### 9.2  okhttp
+
+上面用的Java中的HttpURLConnection是比较底层的接口，编写代码工作量大，容易出错。
+
+okhttp是android平台使用最广泛的第三方网络框架，okhttp做了很多网络优化，功能也很强大。
+
+OkHttp中有两种添加拦截器的方法
+
+- addInterceptor：先执行
+- addNetworkInterceptor：后执行
+
+okhttp有同步、异步两种接口
+
+- 同步接口：阻塞方式
+- 异步接口：自动创建线程进行网络请求
+  
+
+首先gradle，添加如下依赖
+
+```
+implementation 'com.squareup.okhttp3:okhttp:4.10.0'
+```
+
+（1）同步方式
+
+```
+public class WeatherOkHttpThread extends  Thread{
+
+    //天气接口
+    private String path = "https://restapi.amap.com/v3/weather/weatherInfo?city=440300&key=f15437fa96e40903e41bcb0c0adc8d38";
+
+    //handler
+    private Handler handler;
+
+    public WeatherOkHttpThread(Handler handler) {
+        this.handler = handler;
+    }
+
+    @Override
+    public void run() {
+        String weather = getWeather();
+
+        Message message = new Message();
+        message.what = 0;
+        message.obj = weather;
+
+        handler.sendMessage(message);
+    }
+
+    //获取天气信息
+    private String getWeather() {
+
+        //创建OkHttpClient
+        OkHttpClient client = new OkHttpClient();
+        //构建请求
+        Request request = new Request.Builder().url(path).build();
+        String result = "";
+        try {
+            //同步的方式发送请求
+            Response response = client.newCall(request).execute();
+            if(response != null){
+                result = response.body().string();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return result;
+    }
+
+}
+```
+
+（2）异步方式：
+
+异步方式就不需要人为开启子线程了：
+
+```
+public class WeatherOkHttpActivity extends AppCompatActivity {
+    //天气接口
+    private String path = "https://restapi.amap.com/v3/weather/weatherInfo?city=440300&key=f15437fa96e40903e41bcb0c0adc8d38";
+
+    //handler
+    private Handler handler;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_weather_ok_http);
+        //赋值Handler
+        handler = new WeatherHandler2(this);
+
+        //点击按钮后，okHttp异步请求获取天气信息
+        findViewById(R.id.bt_weather).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                OkHttpClient client = new OkHttpClient();
+                Request request = new Request.Builder().url(path).build();
+
+                client.newCall(request).enqueue(new Callback() {
+                    //请求失败，打印异常
+                    @Override
+                    public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    //响应
+                    @Override
+                    public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                        if (response != null) {
+                            String result = response.body().string();
+                            //回调函数运行在子线程，不能直接操控UI
+                            //通过handler把天气信息发送到主线程显示
+                            Message message = new Message();
+                            message.what = 0;
+                            message.obj = result;
+                            handler.sendMessage(message);
+                        }
+                    }
+                });
+            }
+        });
+
+    }
+}
+```
+
+WeatherHandler2：和上面的WeatherHandler基本无异，只是变了Activity，为了区分而已
+
+```
+public class WeatherHandler2 extends  Handler{
+
+    private WeatherOkHttpActivity activity;
+
+    public WeatherHandler2(WeatherOkHttpActivity activity){
+        this.activity = activity;
+    }
+
+    @Override
+    public void handleMessage(@NonNull Message msg) {
+        super.handleMessage(msg);
+
+        //接受到消息则把天气结果设置到文本框
+        if(msg.what == 0){
+            TextView txWeather = activity.findViewById(R.id.tx_weather);
+            txWeather.setText((String) msg.obj);
+        }
+    }
+
+}
+```
+
+报错问题：okhttp3.internal.http.RealResponseBody
+
+```
+通过OkHttp请求网络，结果请求下来的数据一直无法解析并且报错，这需要将String res = response.body().toString()更改为String res = response.body().string()
+```
 
 
 
+### 9.3 retrofit
+
+在Android开发中，Retrofit是当下最热的一个网络请求库。
+
+底层默认使用okhttp封装的，准确来说,网络请求的工作本质上是okhttp完成，而 Retrofit 仅负责网络请求接口的封装。
+
+第一类：网络请求方法
+
+![image-20230424134154467](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241342598.png)
+
+1.@GET、@POST、@PUT、@DELETE、@HEAD分别对应 HTTP中的网络请求方式
+2.@HTTP替换@GET、@POST、@PUT、@DELETE、@HEAD注解的作用 及 更多功能拓展
+具体使用：通过属性method、path、hasBody进行设置
+
+第二类：标记
+
+![image-20230424134242586](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241342657.png)
+
+1.@FormUrlEncoded
+表示发送form-encoded的数据，每个键值对需要用@Filed来注解键名，随后的对象需要提供值。
+2.@Multipart
+表示发送form-encoded的数据（适用于 有文件 上传的场景），每个键值对需要用@Part来注解键名，随后的对象需要提供值。
+
+第三类：网络请求参数
+
+![image-20230424134319762](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241343845.png)
 
 
+
+其作用主要是简化代码、提高可维护性。
+
+![img](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304232138234.png)
+
+另外，最重要的是：okhttp异步请求的回调运行在子线程，而retrofit的异步请求的回调默认运行在主线程。
+
+![img](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304232139128.png)
+
+在上图中，我们看到的对比最大的区别是什么？
+0）okhttp创建的是OkhttpClient，然而retrofit创建的是 Retrofit实例
+1）构建蓝色的Requet的方案，retrofit是通过注解来进行的适配
+2）配置Call的过程中，retrofit是利用Adapter适配的Okhttp 的Call
+3）相对okhttp，retrofit会对responseBody进行 自动的Gson解析
+4）相对okhttp，retrofit会自动的完成线程的切换。
+
+使用retrofit时，不再需要使用handler机制手工进行线程间通信。
+
+整个流程如图
+
+![img](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304232140817.png)
+
+使用步骤，添加Retrofit库的依赖：
+
+```
+implementation 'com.squareup.retrofit2:retrofit:2.0.2'
+implementation 'com.squareup.retrofit2:converter-gson:2.0.2'
+implementation 'com.google.code.gson:gson:2.8.5'
+implementation 'com.squareup.retrofit2:adapter-rxjava:2.0.2'
+```
+
+后面三个是可选的，分别是数据解析器和gson，以及rxjava支持的依赖
+
+Retrofit还提供了很多其他的注解类型
+
+![image-20230424115515213](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304241155372.png)
+
+```
+//创建一个接口
+//指定url（不包含域名和参数），GET请求的参数通过@Query指定
+public interface  WeatherService {
+
+    //这里没有定义实体类，而是使用JsonObject代替
+    @GET("v3/weather/weatherInfo")
+    Call<JsonObject> fetchWeatherResult(@Query("key") String key,
+                                        @Query("city") String city);
+
+}
+
+```
+
+Activity：
+
+```
+public class WeatherRetrofitActivity extends AppCompatActivity implements View.OnClickListener {
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_weather_retrofit);
+        findViewById(R.id.bt_weather).setOnClickListener(this);
+    }
+
+    @Override
+    public void onClick(View view) {
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl("https://restapi.amap.com")
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+
+        WeatherService weatherService = retrofit.create(WeatherService.class);
+
+        Call<JsonObject> call = weatherService.fetchWeatherResult("f15437fa96e40903e41bcb0c0adc8d38", "440300");
+        call.enqueue(new Callback<JsonObject>() {
+            //响应
+            @Override
+            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                //获得天气结果
+                JsonObject result = response.body();
+                //直接设置到textView,不再需要使用handler手动进行线程间通信
+                TextView textView = findViewById(R.id.tx_weather);
+                textView.setText(result.toString());
+            }
+
+            //请求失败
+            @Override
+            public void onFailure(Call<JsonObject> call, Throwable t) {
+                t.printStackTrace();
+            }
+        });
+    }
+}
+```
 
 
 
 ## 10  服务
+
+### 10.1 概念
+
+Service(服务)是一个一种可以在后台执行长时间运行操作而没有用户界面的应用组件。服务可由其他应用组件启动（如Activity），服务一旦被启动将在后台一直运行，即使启动服务的组件（Activity）已销毁也不受影响。 此外，组件可以绑定到服务，以与之进行交互，甚至是执行进程间通信 (IPC)。 
 
 可在后台执行长时间运行操作而不提供界面的应用组件。如下载文件、播放音乐
 
@@ -5709,9 +7763,379 @@ Service有两种方式：
 
 
 
+raw文件夹创建方式
+
+![image-20230422223141158](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304222231310.png)
+
+![image-20230422223404346](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304222234422.png)
+
+### 10.2 startService
+
+通过startService()与stopService()启动和停止服务，Service与启动它的Activity无法进行通信和数据交换
+
+```
+public class MusicHelper {
+    private MediaPlayer mediaPlayer;
+
+    private Context context;
+
+    private final int[] musics = new int[]{R.raw.my, R.raw.tm};
+
+    private int musicIndex = 0;
+
+    private boolean prepared = false;
+
+    public MusicHelper(Context context) {
+        this.context = context;
+        //创建MediaPlayer对象
+        createMediaPlayer();
+    }
+
+    //创建MediaPlayer对象
+    private void createMediaPlayer() {
+
+        this.mediaPlayer = new MediaPlayer();
+        mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+    }
+
+    //播放
+    public void play() {
+        if (mediaPlayer.isPlaying()) {
+            return;
+        }
+        if (prepared) {
+            mediaPlayer.start();
+            Log.d("ning", "播放音频 play");
+            return;
+        }
+        try {
+            //这里路径要注意：android.resource:// + 包名 + R.raw.XXXX
+            mediaPlayer.setDataSource(context, Uri.parse("android.resource://" + context.getPackageName() + "/" + musics[musicIndex]));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        mediaPlayer.prepareAsync();
+        mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+            @Override
+            public void onPrepared(MediaPlayer mp) {
+                mp.start();
+                Log.d("ning", "播放音频 play");
+                prepared = true;
+            }
+        });
+    }
+
+    //暂停
+    public void pause() {
+        if (!mediaPlayer.isPlaying()) {
+            return ;
+        }
+        mediaPlayer.pause();
+    }
+
+    //下一首
+    public void next(){
+        musicIndex = musicIndex + 1;
+        musicIndex = musicIndex % musics.length;
+        destroy();
+        createMediaPlayer();
+        play();
+    }
+
+    //销毁
+    public void destroy(){
+        if(mediaPlayer == null){
+            return ;
+        }
+        mediaPlayer.stop();
+        mediaPlayer.release();
+        mediaPlayer = null;
+        prepared = false;
+    }
+    
+}
+```
+
+实现Service类：
+
+```
+public class MusicService extends Service {
+    private MusicHelper musicHelper;
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        musicHelper = new MusicHelper(this);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        musicHelper.destroy();
+        musicHelper = null;
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        musicHelper.play();
+        Log.d("ning", "播放音频 onStartCommand");
+        return super.onStartCommand(intent, flags, startId);
+    }
+
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+}
+```
+
+onBind()
+  当另一个组件想通过调用 bindService() 与服务绑定（例如执行 RPC）时，系统将调用此方法。在此方法的实现中，必须返回 一个IBinder 接口的实现类，供客户端用来与服务进行通信。无论是启动状态还是绑定状态，此方法必须重写，但在启动状态的情况下直接返回 null。
+
+onCreate()
+  首次创建服务时，系统将调用此方法来执行一次性设置程序（在调用 onStartCommand() 或onBind() 之前）。如果服务已在运行，则不会调用此方法，该方法只调用一次
+
+onStartCommand()
+  当另一个组件（如 Activity）通过调用 startService() 请求启动服务时，系统将调用此方法。一旦执行此方法，服务即会启动并可在后台无限期运行。 如果自己实现此方法，则需要在服务工作完成后，通过调用 stopSelf() 或 stopService() 来停止服务。（在绑定状态下，无需实现此方法。）
+
+onDestroy()
+  当服务不再使用且将被销毁时，系统将调用此方法。服务应该实现此方法来清理所有资源，如线程、注册的侦听器、接收器等，这是服务接收的最后一个调用。
+
+在AndroidManifest.xml中注册：
+
+```
+<service
+         android:name=".service.MusicService"
+         android:enabled="true"
+         android:exported="true" />
+
+```
+
+![image-20230422224201178](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304222242252.png)
+
+```
+public class StartServicActivity extends AppCompatActivity {
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_start_servic);
+
+        //播放
+        findViewById(R.id.btPlay).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.d("hhh", "点击了按钮");
+                Intent intent = new Intent(StartServicActivity.this, MusicService.class);
+                //这里会自动调用Service的onStartCommand方法
+                startService(intent);
+            }
+        });
+
+        //暂停
+        findViewById(R.id.btStop).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(StartServicActivity.this, MusicService.class);
+                //这里会直接调用Service的onDestroy方法，销毁Service
+                stopService(intent);
+            }
+        });
+    }
+}
+```
 
 
 
+### 10.3 bindService
+
+通过bindService()与unbindService()启动和停止服务。在启动时，通过bindService(Intent, ServiceConnection, int)启动服务，unbindService(ServiceConnection) 停止服务。启动ServiceConnection参数为交互数据的对象
+
+上我们必须提供一个 IBinder接口的实现类，该类用以提供客户端用来与服务进行交互的编程接口，该接口可以通过三种方法定义接口：
+
+1 扩展 Binder 类 
+
+自有应用的后台工作线程，则优先采用这种方法
+
+2 使用 Messenger
+
+Messenger是以串行的方式处理客户端发来的消息
+
+3 使用 AIDL
+
+用于处理并发请求。服务必须具备多线程处理能力，并采用线程安全式设计。使用AIDL必须创建一个定义编程接口的 .aidl 文件
+
+
+
+下面例子使用第一种方法
+
+在Service类中添加了Binder类：
+
+```
+public class MusicService2  extends Service {
+    private MusicHelper musicHelper;
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        musicHelper = new MusicHelper(this);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        musicHelper.destroy();
+        musicHelper = null;
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        musicHelper.play();
+        Log.d("ning", "播放音频 onStartCommand");
+        return super.onStartCommand(intent, flags, startId);
+    }
+
+    public class MyBinder extends Binder {
+        private MusicService2 service;
+
+        public MyBinder(MusicService2 service) {
+            this.service = service;
+        }
+
+        public void play() {
+            service.musicHelper.play();
+        }
+
+        public void next() {
+            service.musicHelper.next();
+        }
+
+        public void pause() {
+            service.musicHelper.pause();
+        }
+
+        public void destroy() {
+            service.musicHelper.destroy();
+        }
+    }
+
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        Log.d("ning", "onBind");
+        return new MyBinder(this);
+    }
+}
+```
+
+连接类MyConn：
+
+- 调用bindService之后，客户端端连上Service
+- 触发MyConn类的onServiceConnected方法，获取Binder对象
+- 之后可以Binder对象和Service交互（播放、暂停、下一首）
+
+```
+public class MyConn implements ServiceConnection {
+    public MusicService2.MyBinder myBinder = null;
+
+    @Override
+    public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+        myBinder = (MusicService2.MyBinder) iBinder;
+    }
+
+    @Override
+    public void onServiceDisconnected(ComponentName componentName) {
+
+    }
+}
+```
+
+主类
+
+```
+public class BindServiceActivity extends AppCompatActivity {
+    private MyConn myConn;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_bind_service);
+
+        //初始化服务
+        initService();
+
+        //播放
+        findViewById(R.id.btPlay).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.d("ning", "点击了按钮");
+                if(myConn.myBinder == null){
+                    return ;
+                }
+                myConn.myBinder.play();
+            }
+        });
+
+        //暂停
+        findViewById(R.id.btStop).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(myConn.myBinder == null){
+                    return ;
+                }
+                myConn.myBinder.pause();
+            }
+        });
+
+        //下一首
+        findViewById(R.id.btNext).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(myConn.myBinder == null){
+                    return ;
+                }
+                myConn.myBinder.next();
+            }
+        });
+    }
+
+    private void initService() {
+        //开启服务
+        Intent intent = new Intent(this, MusicService2.class);
+        startService(intent);
+
+        //绑定服务
+        if(myConn == null){
+            myConn = new MyConn();
+            intent = new Intent(this, MusicService2.class);
+            //这里会自动调用MyConn的onServiceConnected方法
+            bindService(intent, myConn, 0);
+        }
+    }
+}
+```
+
+
+
+### 10.4 service保活
+
+1. onStartCommand方法返回START_STICKY或者START_REDELIVER_INTENT；
+2. 提高Service的优先级，在AndroidManifest.xml文件中对于intent-filter可以通过android:priority = "1000"这个属性设置最高优先级，1000是最高值，如果数字越小则优先级越低，同时适用于广播。
+3. 在Service即将销毁的时候重新启动；或者注册一个广播，然后在service的onDestroy中发送广播，在广播中实现拉起；
+4. 提升service进程优先级，使用前台服务；
+5. 通过系统的一些广播，比如：手机重启、界面唤醒、应用状态改变等等监听并捕获到，然后判断我们的Service是否还存活
+6. 开启一个守护进程，实时监听；
+7. AlarmManager + JobScheduler；
+8. 双进程守护，AIDL方式单进程、双进程方式保活Service；
+9. **白名单：**跳转到系统白名单界面让用户自己添加app进入白名单；
+10. 安装到system/app，使其成为系统应用。
+
+### 10.5 onStartCommand 返回值
+
+1. START_STICKY：表示Service运行的进程被Android系统强制杀掉之后，Android系统会将该Service依然设置为started状态（即运行状态），但是不再保存onStartCommand方法传入的intent对象，然后Android系统会尝试再次重新创建该Service，并执行onStartCommand回调方法，但是onStartCommand回调方法的Intent参数为null，也就是onStartCommand方法虽然会执行但是获取不到intent信息。如果你的Service可以在任意时刻运行或结束都没什么问题，而且不需要intent信息，那么就可以在onStartCommand方法中返回START_STICKY，比如一个用来播放背景音乐功能的Service就适合返回该值。
+2. START_REDELIVER_INTENT：表示Service运行的进程被Android系统强制杀掉之后，与返回START_STICKY的情况类似，Android系统会将再次重新创建该Service，并执行onStartCommand回调方法，但是不同的是，Android系统会再次将Service在被杀掉之前最后一次传入onStartCommand方法中的Intent再次保留下来并再次传入到重新创建后的Service的onStartCommand方法中，这样我们就能读取到intent参数。只要返回START_REDELIVER_INTENT，那么onStartCommand重的intent一定不是null。如果我们的Service需要依赖具体的Intent才能运行（需要从Intent中读取相关数据信息等），并且在强制销毁后有必要重新创建运行，那么这样的Service就适合返回START_REDELIVER_INTENT。
+3. START_NOT_STICKY：表示当Service运行的进程被Android系统强制杀掉之后，不会重新创建该Service
 
 
 
@@ -6150,13 +8574,92 @@ public class SystemNetworkActivity extends AppCompatActivity {
 
 ![image-20230421225503050](https://jiangteddy.oss-cn-shanghai.aliyuncs.com/img2/202304212255118.png)
 
+### 11.5 定时管理器AlarmManager
+
+AlarmManager是Android提供的全局定时器，利用系统闹钟定时发送广播。可以实现定时执行代码的目的。
+
+```java
+public class AlarmRecevier extends BroadcastReceiver {
+
+    public static final String ALARM_ACTION = "com.jiang.alarm";
+    private final Context myContext;
+
+    public AlarmRecevier(Context context) {
+        super();
+        this.myContext = context;
+    }
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        if (intent != null && intent.getAction().equals(ALARM_ACTION)) {
+            Log.d("ning", "收到闹钟广播");
+            //循环调用
+            sendAlarm();
+            
+        }
+    }
+
+    //发送闹钟广播
+    public void sendAlarm() {
+        Intent intent = new Intent(ALARM_ACTION);
+        //创建一个用于广播的延迟意图
+        // FLAG_IMMUTABLE 代表可变的
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(myContext, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+        //从系统中拿到闹钟管理器
+        AlarmManager alarmManager = (AlarmManager) myContext.getSystemService(Context.ALARM_SERVICE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            //允许空闲时候发送广播，针对6.0以后
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, 1000, pendingIntent);
+        } else {
+            //设置一次性闹钟，只显示1次
+            //在6.0版本后，暗屏不保证发送成功
+            alarmManager.set(AlarmManager.RTC_WAKEUP, 1000, pendingIntent);
+        }
+
+        //设置重复闹钟.4.4后不保证
+        //alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() ,1000, pendingIntent);
+
+    }
+}
+```
+
+```java
+public class AlarmActivity extends AppCompatActivity implements View.OnClickListener {
+    private AlarmRecevier alarmRecevier;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_alarm);
+        findViewById(R.id.btn_alarm).setOnClickListener(this);
+    }
+
+    @Override
+    public void onClick(View view) {
+        alarmRecevier.sendAlarm();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        alarmRecevier = new AlarmRecevier(getApplicationContext());
+        IntentFilter intentFilter =new IntentFilter(AlarmRecevier.ALARM_ACTION);
+        registerReceiver(alarmRecevier,intentFilter);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        unregisterReceiver(alarmRecevier);
+    }
+}
+```
 
 
 
 
 
 
-## 12、定位服务
 
 
 
